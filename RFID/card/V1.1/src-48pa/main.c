@@ -73,10 +73,10 @@ ISR(SIG_OVERFLOW1)		// 9s
 	ENA_EXTI0;
 }
 */
-unsigned int nId = 0x06;
+unsigned int nId = 0x08;
 int main(void)
 {
-    unsigned char tBuf[7] = {0xFC,0x07,0x00,0x00,0x00,0x06,0xFF};
+    unsigned char tBuf[7] = {0xFC,0x07,0x00,0x00,0x00,0x07,0xFF};
     unsigned char tmp = 0;
 	unsigned char i = 0;
     unsigned int count = 0;
