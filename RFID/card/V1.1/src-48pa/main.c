@@ -107,7 +107,7 @@ int main(void)
     {
         if(flag)
         {
-            if(len==5)
+            if(len==7)
             {
 				rId = (rBuf[4]<<8)+rBuf[5];
 				if(rId==nId)

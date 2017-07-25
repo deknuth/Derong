@@ -1,0 +1,80 @@
+#include "../inc/main.h"
+#if 0
+int	DataProcess(PRINFO rinfo,int type,int node)		// flag  0: self state 		1: operation state   2: operation record
+{
+	int i,j=0;
+	char sql[512] = {0};
+	char sql1[512] = {0};
+	char dates[9] = {0};
+	char times[6] = {0};
+	int nPos,mfd;
+
+	switch(type)
+	{
+		case 0:		// equipment online info		insert to equipment table
+			sprintf(sql,
+				"MERGE INTO t_equ_info T1 \
+				USING (SELECT '%s' e_mac,%d e_node_num, %d e_node_group FROM DUAL) T2 \
+				ON (T1.e_mac = T2.e_mac and T1.e_node_num = T2.e_node_num and T1.e_node_group = T2.e_node_group) \
+				WHEN not MATCHED THEN INSERT \
+				(e_node_num,e_type,e_node_mac,e_mac,e_node_state,e_node_group) values (%d,%d,'%s','%s',%d,%d)",
+				rinfo->id,rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].group,
+				rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].n_type,rinfo->rnInfo[node].n_mac,rinfo->id,rinfo->rnInfo[node].n_stat,rinfo->rnInfo[node].group
+			);
+
+
+			/*
+			sprintf(sql,"insert into t_equ_info (e_node_num,e_type,e_node_mac,e_mac,e_node_state,e_node_group) values (%d,%d,'%s','%s',%d,%d)",
+				rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].n_type,rinfo->rnInfo[node].n_mac,rinfo->id,rinfo->rnInfo[node].n_stat,rinfo->rnInfo[node].group);		// insert equipment info to database
+			*/
+			sprintf(sql1,
+				"MERGE INTO t_menu_info T1 \
+				USING (SELECT '%s' m_mac,%d m_node_num, %d m_group FROM DUAL) T2\
+				ON (T1.m_mac = T2.m_mac and T1.m_node_num = T2.m_node_num and T1.m_group = T2.m_group) \
+				WHEN not MATCHED THEN \
+				INSERT (M_BUT_TYPE,M_BUT_NAME,M_USER,M_MAC,M_NODE_NUM,M_GROUP,m_id) values (%d,'%s','%s','%s',%d,%d,seq_but.nextVal)",
+				rinfo->id,rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].group,
+				rinfo->rnInfo[node].n_type,"未命名","",rinfo->id,rinfo->rnInfo[node].n_num,
+				rinfo->rnInfo[node].group
+			);
+/*
+			sprintf(sql1,"insert into t_menu_info (M_BUT_TYPE,M_BUT_NAME,M_USER,M_MAC,M_NODE_NUM,M_GROUP) values (%d,'%s','%s','%s',%d,%d)",
+						rinfo->rnInfo[node].n_type,"未命名","",rinfo->id,rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].group);
+						*/
+	//		printf("insert sql: %s",sql);
+	//		printf(" sql: %s",sql1);
+		break;
+
+		case 1:		// back state of operation    	insert to table of operation record
+			gdate(dates);
+			for(i=0; i<14 ;i++)
+				times[j++] = dates[i];
+			nPos = rinfo->hiv;
+			mfd = hInfo[nPos].rhiv;
+			sprintf(sql,"insert into T_STATE_RECORD (o_type,o_date,o_time,o_e_sn,o_n_sn,o_user,o_stat,o_id) values (%d,'%s','%s','%s','%s','%s',%d,seq_oper.nextVal)",
+					rinfo->rnInfo[node].n_type,dates,times,rinfo->rnInfo[node].n_mac,rinfo->id,mInfo[mfd].user,rinfo->rnInfo[node].n_stat);
+			sprintf(sql1,"update t_equ_online_info set e_node_state = %d where e_mac='%s' and e_node_group = %d and e_node_num=%d",
+					rinfo->rnInfo[node].n_stat,rinfo->id,rinfo->rnInfo[node].group,rinfo->rnInfo[node].n_num);
+
+			printf("back sql: %s",sql1);
+
+		break;
+
+		case 2:		// present state	insert to temporary table of equipment
+			sprintf(sql,
+				"INSERT into t_equ_online_info (e_node_num,e_type,e_node_mac,e_mac,e_node_state,e_node_group) values (%d,%d,'%s','%s',%d,%d)",
+				rinfo->rnInfo[node].n_num,rinfo->rnInfo[node].n_type,rinfo->rnInfo[node].n_mac,rinfo->id,
+				rinfo->rnInfo[node].n_stat,rinfo->rnInfo[node].group
+			);// insert equipment info to database
+		break;
+		default:
+			break;
+	}
+	OciInsert(sql);
+	if(type != 2)
+		OciInsert(sql1);
+	return 0;
+}
+#endif
+
+

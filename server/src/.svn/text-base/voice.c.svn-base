@@ -1,0 +1,11 @@
+/*
+ * voice.c
+ *
+ *  Created on: 2016.06.18
+ *      Author: Lovneix
+ */
+
+void *VoiceServer(void *arg)
+{
+	return 0;
+}

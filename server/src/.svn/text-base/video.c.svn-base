@@ -1,0 +1,289 @@
+#include "../inc/main.h"
+#include "../inc/video.h"
+static void DateTran(unsigned char* src,char* date);
+
+void PhotoProcess(int pfd)
+{
+	int rLen;
+	int mfd;
+	char sn[17] = {0};
+	unsigned int index = 0;
+	unsigned char rid[8] = {0};
+	unsigned char rBuf[1024] ={ 0 };
+	unsigned char pack[8] = {0xfe,0x00,0x08,0x00,0x01,0x09,0x01,0xff};
+	while ((rLen = read(pfd, rBuf, 1024)) > 0)
+	{
+//		printf("rLen: %d\n",rLen);
+		if(pInfo[pfd].dsf == 0)		// 非数据段
+		{
+			if(rLen == 28)		// 协议
+			{
+				if(rBuf[0]==0xfd && rBuf[rLen-1]==0xff && rBuf[2]==28)
+				{
+					index = (rBuf[5]<<8) + rBuf[6];
+					if(index == 0x7B2)				// picture info return
+					{
+						memcpy(rid,&rBuf[7],8);
+						HexToString(sn,rid,8);
+						index = GetHashTablePos(sn,RidHash,MHI);
+						if(index > 0)
+						{
+							if(hInfo[index].pValid == 1)	// 拍照成功返回
+							{
+								if(hInfo[index].rhiv)		// 机器人在线
+								{
+									if(!_write(pfd,pack,8))
+									{
+										lprintf(lfd, FATAL, "Photo: Photo receive failed!");
+										pack[6] = 0x00;
+										_write(hInfo[pInfo[pfd].index].mfd,pack,8);
+										ResetPClient(pfd);		// close client
+										break;
+									}
+									else
+									{
+										pInfo[pfd].pSize = ((rBuf[15]<<24) + (rBuf[16]<<16) + (rBuf[17]<<8) + rBuf[18]);
+
+										m_printf("PIC size: %d\n",pInfo[pfd].pSize);
+
+										if(pInfo[pfd].pSize > 0)
+										{
+											pInfo[pfd].pBuf = (unsigned char *)malloc(sizeof(unsigned char) * pInfo[pfd].pSize);
+											if(pInfo[pfd].pBuf == NULL)
+											{
+												lprintf(lfd, FATAL, "Photo: malloc failed!");
+												ResetPClient(pfd);		// close client
+												break;
+											}
+											else
+											{
+												if(hInfo[index].mfd > 0)
+												{
+													pInfo[pfd].tflag = pfd;
+													pInfo[pfd].dsf = 1;
+													pInfo[pfd].count = 0;
+													pInfo[pfd].index = index;
+													UpdatePClient(pfd);
+													_write(hInfo[index].mfd,rBuf,28);
+												}
+												else
+												{
+													pack[6] = 0x00;
+													_write(pfd,pack,8);
+													ResetPClient(pfd);		// close client
+													break;
+												}
+											}
+										}
+										else
+										{
+											ResetPClient(pfd);		// close client
+											break;
+										}
+									}
+								}
+								else
+								{
+									ResetPClient(pfd);		// close client
+									break;
+								}
+							}
+							else
+							{
+								ResetPClient(pfd);		// close client
+								break;
+							}
+						}
+						else
+						{
+							ResetPClient(pfd);		// close client
+							break;
+						}
+					}
+					else if(index == 0x7B1)
+					{
+						pack[6] = 0x00;
+						_write(hInfo[pInfo[pfd].index].mfd,pack,8);
+						break;
+					}
+					else
+					{
+						ResetPClient(pfd);		// close client
+						break;
+					}
+				}
+				else
+				{
+					ResetPClient(pfd);		// close client
+					break;
+				}
+			}
+		}
+		else if((pInfo[pfd].wFlag==0) && pInfo[pfd].tflag)		// 数据段
+		{
+			if((pInfo[pfd].count+rLen) <= pInfo[pfd].pSize)
+			{
+				memcpy(&pInfo[pfd].pBuf[pInfo[pfd].count],rBuf,rLen);
+				pInfo[pfd].count += rLen;
+				if(pInfo[pfd].count == pInfo[pfd].pSize)			// picture receive over
+				{
+					pInfo[pfd].wFlag = 1;
+
+					m_printf("Send PIC size: %d\n",pInfo[pfd].count);
+
+					mfd = hInfo[pInfo[pfd].index].mfd;
+#ifdef SOCK_PIC
+					if(hInfo[pInfo[pfd].index].mfd > 0)
+						_write(mfd,pInfo[pfd].pBuf,pInfo[pfd].count);  	// socket通道返回
+#else
+					if(mInfo[mfd].tmpFile.ffd > 0)
+					{
+						_write(mInfo[mfd].tmpFile.ffd,pInfo[pfd].pBuf,pInfo[pfd].count);	// HTTP返回
+						mInfo[mfd].tmpFile.wo = 1;
+						close(mInfo[mfd].tmpFile.ffd);
+					}
+#endif
+					free(pInfo[pfd].pBuf);
+					ResetPClient(pfd);
+				}
+			}
+			else	// data error
+			{
+				m_printf("PIC size overflow: %d\n",pInfo[pfd].count);
+				m_printf("%s:%d:%s:free(0x%lx)\n", __FILE__, __LINE__,__func__, (unsigned long)pInfo[pfd].pBuf);
+
+				pInfo[pfd].wFlag = 1;
+				pack[6] = 0x02;
+				mInfo[hInfo[pInfo[pfd].index].mfd].tmpFile.wo = 2;
+				_write(hInfo[pInfo[pfd].index].mfd,pack,8);
+				free(pInfo[pfd].pBuf);
+				ResetPClient(pfd);
+				break;
+			}
+		}
+		else
+		{
+			ResetPClient(pfd);		// close client
+			break;
+		}
+	}
+	if (rLen == -1 && errno != EAGAIN)			// socket closed
+		lprintf(lfd, WARN, "Photo: socket read error!");
+	else if (rLen == 0)
+		ResetPClient(pfd);		// close client
+	return;
+}
+
+int VideoRecCheck(int mfd,unsigned char* rBuf,int rLen)
+{
+	int i,j=0;
+	char count[16] = {0};
+	char date[9] = {0};
+	char sql[384] = {0};
+	unsigned int len = 0;
+	unsigned char cr = 0;
+	unsigned char res = 1;
+	len = rLen-8-APP_KEY_LEN;
+	unsigned char* dBuf = malloc(sizeof(unsigned char)*len);
+	unsigned char* time = malloc(sizeof(unsigned char)*((len>>1)*3));
+	unsigned char* pack = malloc(sizeof(unsigned char)*(8+APP_KEY_LEN+((len>>1)*3)));
+	unsigned char temp[3] = {0};
+	int times = 0;
+	memcpy(dBuf,&rBuf[7],len);
+	for(i=0; i<len; i+=3)
+	{
+		memcpy(temp,&dBuf[i],3);
+		DateTran(temp,date);
+		snprintf(sql,sizeof(sql),"select sum(V_time) from t_video_info where V_RID='%s' and V_DATE='%s'",mInfo[mfd].id,date);
+
+		s_printf("Video check: %s\n",sql);
+
+		cr = CountCheck(oracle_env,sql, count);
+		if(cr)
+		{
+			j = 0;
+			times = atoi(count);
+			time[j] = times>>16;
+			time[j+1] = (times&0xFF00) >> 8;
+			time[j+2] = times&0xFF;
+			memcpy(&pack[7+i],time,3);
+		}
+		else
+			lprintf(lfd, FATAL, "Mobile[%x]: Video check failed!",mInfo[mfd].version);
+		memset(temp,0x00,3);
+	}
+	pack[0] = 0xfd;
+	pack[1] = (8+APP_KEY_LEN+((len>>1)*3)) >> 8;
+	pack[2] = (8+APP_KEY_LEN+((len>>1)*3)) & 0xFF;
+	pack[5] = 0x07;
+	pack[6] = 0xA0;
+	pack[(len>>1) * 3 + 7 + APP_KEY_LEN] = 0xff;
+	GetKey(&pack[(len>>1)*3+7],rBuf,rLen);
+	if(!_m_write(mfd,pack,(len>>1) * 3 + 8 + APP_KEY_LEN))
+		res = 0;
+	free(dBuf);
+	free(pack);
+	free(time);
+	return res;
+}
+
+int NameCheck(int mfd,unsigned char* buf,int len)
+{
+	int cTime = 0;
+	int rs = 0;
+	char cData[9] = { 0 };
+	char sql[512] = { 0 };
+	char name[33] = { 0 };
+	unsigned char pack[28+APP_KEY_LEN] = { 0 };
+	unsigned char temp[16] = { 0 };
+	unsigned int fLen = 0;
+	char parrten[2] = { 0x01 };
+
+	cData[0] = '2';
+	cData[1] = '0';
+	memcpy(temp,&buf[7],3);
+	DECToString(&cData[2],temp,3);
+	cData[8] = '\0';
+
+	cTime = (buf[10]<<16) + (buf[11]<<8) + buf[12];
+//	rfd = GetRFD(mfd);
+	snprintf(sql,sizeof(sql),"select V_FILE_NAME,V_LEN from T_VIDEO_INFO where V_RID = '%s' and V_DATE = '%s' and V_TIME = '%d'",mInfo[mfd].id,cData,cTime);
+	rs = CheckOneRow(name,sql,48);
+	if(rs > 0)
+	{
+		rs = kmp(name,parrten);
+		if(rs != -1)
+		{
+			memset(temp,0x00,3);
+			memcpy(temp,name,rs);
+			fLen = strtol((char *)temp,NULL,10);
+			memset(temp,0x00,16);
+			StringToHex(temp,&name[rs+1]);
+			memcpy(&pack[7],temp,16);
+		}
+	}
+	s_printf("Video name checke SQL: %s\n",sql);
+	m_printf("vide file len: %ld\n",fLen);
+	CreatHead(pack,28+APP_KEY_LEN,0x7A1);
+	pack[23] = (fLen&0xFF000000) >> 24;
+	pack[24] = (fLen&0xFF0000) >> 16;
+	pack[25] = (fLen&0xFF00) >> 8;
+	pack[26] = fLen&0xFF;
+	GetKey(&pack[27],buf,len);
+	_m_write(mfd,pack,28+APP_KEY_LEN);
+	return 1;
+}
+
+void DateTran(unsigned char* src,char* date)
+{
+	*(date++) = '2';
+	* (date++) = '0';
+	*(date++) = *(src)/10 + 48;
+	*(date++) = *(src++)%10 + 48;
+	*(date++) = *(src)/10 + 48;
+	*(date++) = *(src++)%10 + 48;
+	*(date++) = *(src)/10 + 48;
+	*(date++) = *(src++)%10 + 48;
+	*date = '\0';
+}
+

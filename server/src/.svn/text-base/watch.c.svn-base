@@ -1,0 +1,1641 @@
+#include "../inc/main.h"
+#include "../inc/watch.h"
+typedef struct ow{
+	char pCode[4];
+	char pVer[4];
+	char pImie[17];
+	char pImsi[17];
+}OWS;
+static int TypeJudg(char* type);
+static int LenghtConver(char* src,int len);
+static int ParaSet(int wfd,int value,WINF *pWf);
+static int LenghtCalc(char* src);
+static int LinkKeep(int wfd,WINF *pWf,int index);
+static int mWBack(int mfd,int stat);
+static int llFormat(char *src,unsigned char *dst);
+static int ValueConver(char* src);
+static int PositionInfo(int wfd,char* src,WINF *pWf);
+static int GetNumber(unsigned char* src,unsigned char* dst,int sLen);
+static int oProtocolAnalysis(int wfd,char* src);		// old watch protocol analysis
+static void SetOnline(int wfd,int index,int type);
+static void LogicAalysis(int wfd,OWS owInfo,char* buf);
+static double EarthDis(P_LON_LAT LonLat);
+static int HexToD(unsigned char* src,char* dst,int len);
+static int TimeReq(int wfd,WINF *pWf,int index);
+
+void WatchProcess(int wfd)
+{
+	int rLen,index,last = 0,pLen;
+	char rBuf[1024] = {0};
+	char temp[1024] = {0};
+	int end = 0;
+	int start = 0;
+	while ((rLen = read(wfd, rBuf, 1024)) > 0)
+	{
+		if(rBuf[0]== 0x5B && rBuf[rLen-1] == 0x5D)			// children watch
+		{
+			while(1)
+			{
+				index = kmp(&rBuf[last],"]");
+				if(index == -1)
+					break;
+//				printf("index: %d\trLen: %d\n",index,rLen);
+//				printf("last: %d\n",last);
+				memset(temp,0x00,last+1);
+				memcpy(temp,&rBuf[last],index+1);
+
+				w_printf("children watch read: %s\n",temp);
+
+				if(temp[0] == 0x5B)
+				{
+					ProtocolAnalysis(wfd,temp);		// 协议解析
+					UpdateWClient(wfd);
+				}
+				if(index == rLen-1)
+					break;
+				last += index+1;
+			}
+		}
+		else if(((start = kmp(rBuf,OW_HEAD)) >=0) && ((end = kmp(rBuf,OW_END)) > 20))	// old man watch
+		{
+			pLen = end-start;
+			if(pLen > 20)
+			{
+				memset(temp,0x00,1024);
+				memcpy(temp,&rBuf[start],pLen+strlen(OW_END));
+				w_printf("old watch read: %s\n",temp);
+				oProtocolAnalysis(wfd,temp);
+			}
+		}
+		memset(rBuf, 0x00, rLen);
+	}
+	if (rLen == -1 && errno != EAGAIN)			// socket closed
+		lprintf(lfd, WARN, "Watch: socket read error!");
+	else if (rLen == 0)
+		ResetWClient(wfd);
+	else	// normal exit
+		;
+}
+
+int mWatchReg(int mfd,const unsigned char* buf,int len)
+{
+	int total = 0;
+	int cr,stat,index;
+	char wsn[17] = {0};
+	char count[8] = {0};
+	char sql[1024] = {0};
+	char sql1[256] = {0};
+	unsigned char id[8] = {0};
+	unsigned char temp[8] = {0};
+	unsigned char res = 0;
+	unsigned char number[6] = {0};
+	memcpy(temp,&buf[7],8);
+	memcpy(number,&buf[15],6);
+	cr = raCopy(id,temp,8);
+	stat = HexToString(wsn,id,cr);
+	if(stat==10 || stat==16)
+	{
+		index = GetHashTablePos(wsn,WidHash,MHI);
+		if(index == 0)
+		{
+			stat = 0xAA02;
+			lprintf(lfd, FATAL, "Watch: watch id not register!");
+		}
+		else if(mInfo[mfd].master != 1)		// not master user
+		{
+			stat = 0xAA09;
+			lprintf(lfd, FATAL, "Watch: not master user can't add watch!");
+		}
+		else if(whInfo[index].whiv != 0)		// online
+		{
+			if(strcmp(wsn,wInfo[whInfo[index].whiv].id) == 0 && strcmp(wInfo[whInfo[index].whiv].rid,mInfo[mfd].id) == 0)
+				stat = 0xAA0A;
+			else if(strlen(wInfo[whInfo[index].whiv].rid) == 7 || strcmp(wInfo[whInfo[index].whiv].rid,mInfo[mfd].id) == 0)
+			{
+				DelHashTablePos(wsn,WidHash,MHI);		// clear info
+
+				snprintf(sql1,sizeof(sql1),"delete from t_watch_conf where w_id = '%s'",wsn);
+				OciExcu(oracle_env,sql1,1);
+
+				if(strlen(wInfo[whInfo[index].whiv].rid) == 7)			// first reg
+				{
+					memset(wInfo[whInfo[index].whiv].rid,0x00,17);
+					memcpy(wInfo[whInfo[index].whiv].rid,mInfo[mfd].id,17);
+				}
+				else
+				{
+					memset(sql1,0x00,256);
+					snprintf(sql1,sizeof(sql1),"delete from t_watch_user where w_id = '%s'",wsn);		//del all watch info
+					OciExcu(oracle_env,sql1,1);
+				}
+				snprintf(sql,sizeof(sql),"select count(w_id) from t_watch_user where w_id = '%s'",wsn);		// 查询当前绑定用户数量
+				res = CountCheck(oracle_env,sql,count);
+				if(res == 1)
+				{
+					total = atoi(count);
+					if(total < MWUN)
+					{
+						memset(sql,0x00,128);
+						memset(mInfo[mfd].wid,0x00,17);
+						memcpy(mInfo[mfd].wid,wsn,stat);
+						snprintf(sql,sizeof(sql),"merge into t_watch_user t1 using(SELECT '%s' w_r_user from dual) t2\
+											on (t1.w_r_user = t2.w_r_user)\
+										 when matched then\
+											update SET t1.w_m_time=to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'),t1.w_id='%s'\
+										 when not matched then\
+											insert (w_id,w_r_user,w_m_time) values ('%s','%s',to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'))",
+										mInfo[mfd].user,wsn,wsn,mInfo[mfd].user);
+						r_printf("SQL: %s\n",sql);
+						cr = OciInsert(sql);
+						if(cr)
+						{
+							stat = 0xAA01;
+							index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+							if(index != -1)
+							{
+								if(strlen(mInfo[mfd].wid) <= 12)
+									whInfo[index].type = 1;
+								else
+									whInfo[index].type = 2;
+							}
+					//		if(total == 0)
+							{
+								memset(sql,0x00,1024);
+								snprintf(sql,sizeof(sql),
+										"merge into t_watch_conf t1 using(SELECT '%s' w_r_id from dual) t2\
+											on (t1.w_r_id = t2.w_r_id)\
+										when matched then\
+											update SET t1.w_m_time=to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'),\
+										w_push_alias=(select n_push_alias from t_robot_info where n_mac = '%s'),w_id = '%s'\
+											when not matched then\
+										insert (w_id,w_r_id,w_m_time,w_push_alias) values\
+										('%s','%s',to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'),(select n_push_alias from t_robot_info where n_mac = '%s'))"
+										,mInfo[mfd].id,mInfo[mfd].id,wsn,wsn,mInfo[mfd].id,mInfo[mfd].id);
+								cr = OciInsert(sql);
+								r_printf("Watch REG SQL: %s\n",sql);
+								if(cr)
+									UpdateWid();
+								else
+									stat = 0xAA07;
+							}
+						}
+						else
+						{
+							stat = 0xAA05;
+							lprintf(lfd, FATAL, "Watch: watch register insert database abnormal!");
+						}
+					}
+					else
+					{
+						stat = 0xAA04;
+						lprintf(lfd, FATAL, "Watch: watch user overflow!");
+					}
+				}
+				else
+				{
+					stat = 0xAA05;
+					lprintf(lfd, FATAL, "Watch: watch user check abnormal!");
+				}
+			}
+			else
+			{
+				stat = 0xAA08;
+				lprintf(lfd, FATAL, "Watch: watch id not register!");
+			}
+		}
+		else
+		{
+			stat = 0xAA00;
+			lprintf(lfd, FATAL, "Watch: watch offline!");
+		}
+	}
+	else
+		stat = 0xAA06;
+	s_printf("Watch USER SQL: %s\n",sql);
+	GetKey(mInfo[mfd].aKey, buf, len);
+	return mWBack(mfd,stat);
+}
+
+int mWBack(int mfd,int stat)
+{
+	unsigned char pack[8+APP_KEY_LEN] = {0};
+	pack[0] = 0xfd;
+	pack[1] = 0x00;
+	pack[2] = 8+APP_KEY_LEN;
+	pack[3] = 0x00;
+	pack[4] = 0x01;
+	pack[5] = (stat >> 8);
+	pack[6] = (stat & 0xFF);
+	memcpy(&pack[7],mInfo[mfd].aKey,APP_KEY_LEN);
+	pack[7+APP_KEY_LEN] = 0xff;
+	if(_m_write(mfd,pack,8+APP_KEY_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+int mWatchLocal(int mfd)
+{
+	int index,stat;
+	WINF* pWf = (WINF *)malloc(sizeof(WINF));
+	memset(pWf,0x00,sizeof(WINF));
+	index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+	if(whInfo[index].whiv != 0)		// 手表在线
+	{
+		w_printf("watch online: %d\n",whInfo[index].whiv);
+		strcat(pWf->head,"SG");
+		strncat(pWf->id,mInfo[mfd].wid,10);
+		ParaSet(whInfo[index].whiv,1,pWf);
+		stat = 0xAC01;
+	}
+	else
+	{
+		w_printf("watch[%s] offline!\n",mInfo[mfd].wid);
+		stat = 0xAC02;
+	}
+	free(pWf);
+	return mWBack(mfd,stat);
+}
+
+int mSosSet(int mfd,unsigned char* buf, int len)
+{
+	int index,res=0;
+	int stat,i,j;
+	char a[13] = {0};
+	char b[13] = {0};
+	char c[13] = {0};
+	char sql[256] = {0};
+	unsigned char temp[18] = {0};
+	unsigned char number[37] = {0};
+	unsigned char cr = 0;
+	WINF* pWf = (WINF *)malloc(sizeof(WINF));
+	memset(pWf,0x00,sizeof(WINF));
+	memcpy(temp,&buf[7],18);
+
+	HexToString(a,temp,6);
+	HexToString(b,&temp[6],6);
+	HexToString(c,&temp[12],6);
+
+	GetNumber(temp,number,18);
+
+	index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+	if(whInfo[index].whiv != 0)		// 手表在线
+	{
+		if(whInfo[index].type == 1)		// child
+		{
+			strcat(pWf->head,"SG");
+			strncat(pWf->id,mInfo[mfd].wid,10);
+			memset(pWf->context,0x00,48);
+			for(i=0,j=0; i<36;)
+			{
+				pWf->context[j++] = ',';
+				memcpy(&pWf->context[j],&number[i],11);
+				i += 11;
+				j += 11;
+			}
+			pWf->context[36] = '\0';
+			res = ParaSet(whInfo[index].whiv,2,pWf);
+		}
+		else if(whInfo[index].type == 2)	// old
+			res = oParaSet(mfd,buf,len);
+
+		if(res)
+		{
+			snprintf(sql,sizeof(sql),"update T_WATCH_CONF set W_SOS_A = '%s',W_SOS_B = '%s',W_SOS_C = '%s' where w_id='%s'",a,b,c,mInfo[mfd].wid);		// 更新数据库
+
+			s_printf("SOS SQL: %s\n",sql);
+
+			cr = OciInsert(sql);
+
+			if(cr)
+				stat = 0xAB01;
+			else
+				stat = 0xAB02;
+		}
+		else
+			stat = 0xAB02;
+	}
+	else
+	{
+		s_printf("SOS : off line!\n");
+		stat = 0xAB02;
+	}
+	free(pWf);
+	GetKey(mInfo[mfd].aKey, buf, len);
+	return mWBack(mfd,stat);
+}
+
+int mBLinfo(int mfd,WINF* pWf,int stat)		// back local info to mobile
+{
+	unsigned char pack[23] = {0};
+	pack[0] = 0xfd;
+	pack[1] = 0x00;
+	pack[2] = 0x17;
+	pack[3] = 0x00;
+	pack[4] = 0x01;
+	pack[5] = stat >> 8;
+	pack[6] = stat & 0xFF;
+	if(pWf->sGi.flag == 'A')
+		pack[7] = 1;
+	else
+		pack[7] = 0;
+	memcpy(&pack[8],pWf->sGi.lon,5);
+	memcpy(&pack[13],pWf->sGi.lat,5);
+	memcpy(&pack[18],pWf->sGi.speed,2);
+	memcpy(&pack[20],pWf->sGi.high,2);
+	pack[22] = 0xff;
+	if(_m_write(mfd,pack,23))
+		return 1;
+	else
+		return 0;
+}
+
+int oProtocolAnalysis(int wfd,char* src)		// old watch protocol analysis
+{
+	int index = 0;
+	char id[16] = {0};
+	char sql[128] = {0};
+	unsigned int code = 0;
+	OWS owInfo;
+	memset(owInfo.pImie,0x00,17);
+	memset(owInfo.pCode,0x00,4);
+	memset(owInfo.pImsi,0x00,17);
+	memset(owInfo.pVer,0x00,4);
+
+	sscanf(src,"%*[^,],%4[^,]",owInfo.pVer);
+	sscanf(src,"%*[^,],%*[^,],%4[^,]",owInfo.pCode);
+	sscanf(src,"%*[^,],%*[^,],%*[^,],%16[^,]",id);
+	sprintf(owInfo.pImie,"0%s",id);
+	sscanf(src,"%*[^,],%*[^,],%*[^,],%*[^,],%17[^,]",owInfo.pImsi);
+
+	w_printf("Code: %d\n",atoi(owInfo.pCode));
+	w_printf("IMIE: %s\n",owInfo.pImie);
+
+	if(wInfo[wfd].tflag)
+	{
+		LogicAalysis(wfd,owInfo,src);
+		UpdateWClient(wfd);
+	}
+	else
+	{
+		memset(wInfo[wfd].id,0x00,16);
+		memcpy(wInfo[wfd].id,owInfo.pImie,16);
+		index = GetHashTablePos(owInfo.pImie,WidHash,MHI);
+		if(index)		// On-line registration
+		{
+			SetOnline(wfd,index,2);
+			LogicAalysis(wfd,owInfo,src);
+		}
+		else
+		{
+			code = rand()%10000000;
+			snprintf(sql,sizeof(sql),"insert into t_watch_conf (w_id,w_r_id) values ('%s','%07d')",owInfo.pImie,code);
+			if(OciInsert(sql))
+				index = InsertHash(owInfo.pImie, WidHash,MHI);
+		}
+	}
+	return 1;
+}
+
+void LogicAalysis(int wfd,OWS owInfo,char* buf)
+{
+	char bPack[128] = { 0 };
+	char temp[64] = { "@B#@,%s,%d,%s,@E#@" };
+	char times[15] = { 0 };
+	int pLen = 0,index,i;
+	char normal[17] = { "@B#@,V01,21,@E#@" };
+	char cTime[15] = { 0 };
+	char value[8] = { 0 };
+	char value1[8] = { 0 };
+	char context[192] = { 0 };
+	WINF* pWf = (WINF *)malloc(sizeof(WINF));
+	switch(atoi(owInfo.pCode))
+	{
+	case 1:						// time synchronization
+		gtime(times);
+		pLen = snprintf(bPack,sizeof(bPack),temp,owInfo.pVer,38,times);
+		if(pLen > 10)
+		{
+			w_printf("old watch back pack: %s\n",bPack);
+			_write(wfd,bPack,pLen);
+		}
+		break;
+	case 6:						// GPS info
+//		@B#@,V01, 6,111112222233333,8888888888888888,20150312010203，23.2014050;104.235212,@E#@
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%11[^;]",pWf->sGi.llat);
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^;];%11[^,]",pWf->sGi.llon);
+		w_printf("old watch lat: %s\n",pWf->sGi.llat);
+		w_printf("old watch lon: %s\n",pWf->sGi.llon);
+		wInfo[wfd].sLLInfo.lat = atof(pWf->sGi.llat);
+		wInfo[wfd].sLLInfo.lon = atof(pWf->sGi.llon);
+		llFormat(pWf->sGi.llon,pWf->sGi.lon);
+		llFormat(pWf->sGi.llat,pWf->sGi.lat);
+		pWf->sGi.flag = 'A';
+		index = GetHashTablePos(wInfo[wfd].id,WidHash,MHI);
+		for(i=0; i<MWU; i++)
+		{
+			if(whInfo[index].mfd[i] != 0)
+			{
+				w_printf("old Local info back ID: %d\n",whInfo[index].mfd[i]);
+				mBLinfo(whInfo[index].mfd[i],pWf,0xAE00);
+			}
+		}
+		break;
+	case 43:
+		memset(pWf,0x00,sizeof(WINF));
+		pWf->lbn = oRssiSort(buf,pWf);
+		if(pWf->lbn > 0)
+		{
+			if(GetLBS(pWf))
+			{
+				llFormat(pWf->sGi.llon,pWf->sGi.lon);
+				llFormat(pWf->sGi.llat,pWf->sGi.lat);
+				wInfo[wfd].sLLInfo.lat = atof(pWf->sGi.llat);
+				wInfo[wfd].sLLInfo.lon = atof(pWf->sGi.llon);
+				w_printf("old watch lbs lat: %s\n",pWf->sGi.llat);
+				w_printf("old watch lbs lon: %s\n",pWf->sGi.llon);
+				pWf->sGi.flag = 'A';
+			}
+			index = GetHashTablePos(wInfo[wfd].id,WidHash,MHI);
+			for(i=0; i<MWU; i++)
+			{
+				if(whInfo[index].mfd[i] != 0)
+				{
+					w_printf("old Local info back ID: %d\n",whInfo[index].mfd[i]);
+					mBLinfo(whInfo[index].mfd[i],pWf,0xAE00);
+				}
+			}
+		}
+		break;
+	case 44:
+		_write(wfd,normal,16);
+		break;
+	case 14:
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%15[^,]",cTime);			// check time
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",value);	// check value
+		snprintf(context,sizeof(context),"心率测量(%s): [%s]次/分",cTime,value);
+		PushMessageV3(1,4,wInfo[wfd].alias,context,atoi(value));
+		break;
+	case 13:
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%15[^,]",cTime);			// check time
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",value);	// check value
+		snprintf(context,sizeof(context),"步数统计(%s): 共计[%s]步",cTime,value);
+		PushMessageV3(1,4,wInfo[wfd].alias,context,atoi(value));
+		break;
+	case 99:
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%15[^,]",cTime);			// check time
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",value);	// check value
+		snprintf(context,sizeof(context),"异常心率测量(%s): [%s]次/分",cTime,value);
+		PushMessageV3(1,4,wInfo[wfd].alias,context,atoi(value));
+		break;
+	case 110:
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%15[^,]",cTime);			// check time
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",value);	// check value
+		sscanf(buf,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",value1);	// check value
+		snprintf(context,sizeof(context),"血压测量(%s): 高压: [%s] 低压: [%s]",cTime,value,value1);
+		PushMessageV3(2,4,wInfo[wfd].alias,context,atoi(value),atoi(value1));
+		break;
+	case 21:
+		_write(wfd,normal,16);
+		break;
+	case 38:
+		gtime(times);
+		pLen = snprintf(bPack,sizeof(bPack),temp,owInfo.pVer,38,times);
+		if(pLen > 10)
+			_write(wfd,bPack,pLen);
+		break;
+	default:
+		break;
+	}
+	if(strlen(context) > 0)
+	{
+//		w_printf("watch push[%s]: %s\n",wInfo[wfd].alias,context);
+//		PushMessageV3(0,4,wInfo[wfd].alias,context,0);
+//		PushMessage(wInfo[wfd].alias,context,1);
+	}
+	free(pWf);
+}
+
+int ProtocolAnalysis(int wfd,char* src)
+{
+	int j,index;
+	int type = 0;
+	int flag = 0;
+	unsigned int code = 0;
+	char temp[12] = {0};
+	char pos[512] = {0};
+	char sql[128] = {0};
+	j = strlen(src);
+	if(j < 26 || j > 512)
+		return 0;
+	WINF* pWf = (WINF *)malloc(sizeof(WINF));
+	memset(pWf,0x00,sizeof(WINF));
+//	w_printf("p address: %p\n",pWf);
+	if(sscanf(src,"[%3[^*]",pWf->head) == 1)
+		if(sscanf(src,"%*[^*]*%11[^*]",pWf->id) == 1)
+			if(sscanf(src,"%*[^*]*%*[^*]*%5[^*]",pWf->len) == 1)
+				if(sscanf(src,"%*[^*]*%*[^*]*%*[^*]*%12[^,]",temp) == 1)
+					flag = 1;
+	j = strlen(temp);
+	if(j>0)
+	{
+		if(temp[j-1] == ']')
+			memcpy(pWf->type,temp,j-1);
+		else
+			memcpy(pWf->type,temp,j);
+	}
+
+	if(flag)
+	{
+//		w_printf("type: %s\n",pWf->type);
+//		printf("wid: %d\n",whInfo[GetHashTablePos(pWf->id,WidHash,MHI)].mfd);
+		index = GetHashTablePos(pWf->id,WidHash,MHI);
+		if(index)
+		{
+			type = TypeJudg(pWf->type);
+			switch(type)
+			{
+			case 1:					// link keep
+				LinkKeep(wfd,pWf,index);
+				break;
+			case 2:					// Position information
+
+		//		w_printf("%d\t%d\n",LenghtCalc(pWf->len),strlen(src));
+	//			if(LenghtCalc(pWf->len) == strlen(src)-21)
+				{
+					sscanf(src,"%*[^*]*%*[^*]*%*[^*]*%*[^,],%511s",pos);
+					PositionInfo(wfd,pos,pWf);
+					if(pWf->sGi.flag == 'A')		// 已定位
+					{
+						wInfo[wfd].sLLInfo.lat = atof(pWf->sGi.llat);
+						wInfo[wfd].sLLInfo.lon = atof(pWf->sGi.llon);
+						wInfo[wfd].sLLInfo.flag = 1;
+					}
+					else
+						wInfo[wfd].sLLInfo.flag = 0;
+					for(j=0; j<MWU; j++)
+					{
+						if(whInfo[index].mfd[j] != 0)
+						{
+							w_printf("Local info back ID: %d\n",whInfo[index].mfd[j]);
+							mBLinfo(whInfo[index].mfd[j],pWf,0xAE00);
+						}
+					}
+				}
+				break;
+			case 3:					// Alarm information
+				break;
+			case 4:
+				for(j=0; j<MWU; j++)
+				{
+					if(whInfo[index].mfd[j] != 0)
+						mWBack(whInfo[index].mfd[j],0xAB01);
+				}
+				break;
+			case 5:			// time request
+				TimeReq(wfd,pWf,index);
+				break;
+			default:
+				break;
+			}
+		}
+		else
+		{
+			code = rand()%10000000;
+			snprintf(sql,sizeof(sql),"insert into t_watch_conf (w_id,w_r_id) values ('%s','%d')",pWf->id,code);
+	//		s_printf("%s\n",sql);
+			if(OciInsert(sql))
+				index = InsertHash(pWf->id, WidHash,MHI);
+		}
+		free(pWf);
+		return 1;
+	}
+	else
+	{
+		free(pWf);
+		return 0;
+	}
+}
+
+int TypeJudg(char* type)
+{
+	if(strcmp(type,"LK") == 0)
+		return 1;
+	else if(strcmp(type,"UD") == 0)
+		return 2;
+	else if(strcmp(type,"AL") == 0)
+		return 3;
+	else if(strcmp(type,"SOS") == 0)
+		return 4;
+	else if(strcmp(type,"TIME") == 0)
+		return 5;
+	else
+		return 0;
+}
+
+int TimeReq(int wfd,WINF *pWf,int index)
+{
+	char pack[72] = { 0 };
+	char end[32] = { 0 };
+	time_t now;
+	struct tm *tm_now ;
+	time(&now) ;
+//	tm_now = localtime(&now);
+	tm_now = gmtime(&now);
+	snprintf(end,sizeof(end),"%c%s%c%d%c%d%c%d%c%d%c%d%c%d%c",'*',pWf->type,',',tm_now->tm_year+1900,',',tm_now->tm_mon+1,',',
+			tm_now->tm_mday,',',tm_now->tm_hour,',',tm_now->tm_min,',',tm_now->tm_sec,']');
+	snprintf(pack,sizeof(pack),"%c%s%c%s%c%04X%s",'[',pWf->head,'*',pWf->id,'*',(unsigned int)strlen(end),end);
+
+	w_printf("time REQ: %s\n",pack);
+
+	memset(wInfo[wfd].id,0x00,16);
+	memcpy(wInfo[wfd].id,pWf->id,11);
+	if(_write(wfd,pack,strlen(pack)))
+	{
+		if(!wInfo[wfd].tflag)
+			SetOnline(wfd,index,1);
+		return 1;
+	}
+	return 0;
+}
+
+int LinkKeep(int wfd,WINF *pWf,int index)
+{
+	char pack[24] = {0};
+	memset(wInfo[wfd].id,0x00,16);
+	memcpy(wInfo[wfd].id,pWf->id,11);
+	sprintf(pack,"%c%s%c%s%c%s%c%s%c",'[',pWf->head,'*',pWf->id,'*',"0002",'*',pWf->type,']');
+//	w_printf("watch back pack: %s\n",pack);
+
+	if(_write(wfd,pack,strlen(pack)))
+	{
+		if(!wInfo[wfd].tflag)
+			SetOnline(wfd,index,1);
+	}
+	return 1;
+}
+
+void SetOnline(int wfd,int index,int type)
+{
+	int pos = 0;
+	char sql[256] = {0};
+	char temp[13] = {0};
+	char *p = NULL;
+	const char pattern[2] = {0x01};
+	unsigned char rs = 0;
+	struct timeval ntime;
+	CHECK_DATA *head = (CHECK_DATA *) malloc(sizeof(CHECK_DATA));
+	snprintf(sql,sizeof(sql),"select w_last_lat,w_last_lon,w_fence_cycle,w_fence_lat,w_fence_lon,w_fence_time,w_fence_radius,\
+			w_push_alias,w_r_id from t_watch_conf where w_id='%s'",wInfo[wfd].id);
+//	s_printf("%s\n",sql);
+	rs = ExecSQL(head,sql);
+	if(rs != -1)
+	{
+		if(head != NULL)
+		{
+			if(rs > 0)		// Multiple row
+			{
+				head = head->next;
+				p = head->buf;
+				if(strlen(p) > 8)
+				{
+					pos = kmp(p,pattern);
+					if(pos != -1)
+					{
+						memcpy(wInfo[wfd].rid,p,pos);
+
+						w_printf("set online index: %d\n",index);
+						w_printf("fence wrid: %s\t%d\n",wInfo[wfd].rid,pos);
+
+						lprintf(lfd, INFO, "Watch: [%s] link up success!",wInfo[wfd].id);
+						p += pos+1;
+						pos = kmp(p,pattern);
+						if(pos != -1)
+						{
+							memcpy(wInfo[wfd].alias,p,pos);
+							p += pos+1;
+							pos = kmp(p,pattern);
+							if(pos != -1 && pos < 10)
+							{
+								memcpy(temp,p,pos);
+
+	//							w_printf("fence radius: %s\n",temp);
+								wInfo[wfd].sLLInfo.radius = atoi(temp);		// fence radius
+								p += pos+1;
+								pos = kmp(p,pattern);
+								if(pos != -1)
+								{
+									memset(temp,0x00,13);
+									memcpy(temp,p,pos);
+
+		//							w_printf("fence time: %s\n",temp);
+
+									wInfo[wfd].sLLInfo.cycle = atoi(temp);		// fence cycle
+									p += pos+1;
+									pos = kmp(p,pattern);
+									if(pos != -1)
+									{
+										memset(temp,0x00,13);
+										memcpy(temp,p,pos);
+										wInfo[wfd].sLLInfo.base_lon = atof(temp);
+										w_printf("fence base lon: %f\n",wInfo[wfd].sLLInfo.base_lon);
+
+										p += pos+1;
+										pos = kmp(p,pattern);
+										if(pos != -1)
+										{
+											memset(temp,0x00,13);
+											memcpy(temp,p,pos);
+											wInfo[wfd].sLLInfo.base_lat = atof(temp);
+
+											w_printf("fence base lat: %f\n",wInfo[wfd].sLLInfo.base_lat);
+											p += pos+1;
+											pos = kmp(p,pattern);
+											if(pos != -1)
+											{
+												memset(temp,0x00,13);
+												memcpy(temp,p,pos);
+												wInfo[wfd].sLLInfo.on = atoi(p);
+
+												w_printf("fence on: %d\n",wInfo[wfd].sLLInfo.on);
+
+												p += pos+1;
+												pos = kmp(p,pattern);
+												if(pos != -1)
+												{
+													memset(temp,0x00,13);
+													memcpy(temp,p,pos);
+								//					w_printf("p:%s\n",temp);
+													wInfo[wfd].sLLInfo.last_lon = atof(temp);
+													p += pos+1;
+						//							w_printf("p:%s\n",p);
+													if(strlen(p) > 0)
+														wInfo[wfd].sLLInfo.last_lat = atof(p);
+							//						w_printf("last lat,lon: %lf\t%lf\n",wInfo[wfd].sLLInfo.last_lat,wInfo[wfd].sLLInfo.last_lon);
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+					if(whInfo[index].whiv != 0)
+					{
+						wInfo[whInfo[index].whiv].cflag = -2;		// close last socket
+						gettimeofday(&ntime, NULL);
+						wInfo[whInfo[index].whiv].cntime = (ntime.tv_sec - WATCH_HEART_TIME);
+						lprintf(lfd, INFO, "Watch: [%s] connection update success!",wInfo[wfd].id);
+					}
+					wInfo[wfd].tflag = wfd;
+					wInfo[wfd].hiv = index;
+					wInfo[wfd].type = type;
+					whInfo[index].whiv = wfd;
+					whInfo[index].type = type;
+					gettimeofday(&ntime, NULL);
+					wInfo[wfd].cntime = ntime.tv_sec;
+					pos = GetHashTablePos(wInfo[wfd].rid,RidHash,MHI);
+					hInfo[pos].wfd = wfd;
+				}
+				else
+					lprintf(lfd, INFO, "Watch: [%s] link up A failed!",wInfo[wfd].id);
+			}
+			else
+				lprintf(lfd, INFO, "Watch: [%s] link up B failed!",wInfo[wfd].id);
+		}
+		else
+			lprintf(lfd, INFO, "Watch: [%s] link up C failed!",wInfo[wfd].id);
+	}
+	else
+		lprintf(lfd, INFO, "Watch: [%s] link up D failed!",wInfo[wfd].id);
+	FreeRS(head);
+}
+
+int oParaSet(int mfd,unsigned char* buf,int len)
+{
+	int index = 0;
+	int sequen = 0;
+	int stat = 0;
+	int hd16 = 0;
+	int ld16 = 0;
+	int pLen = 0;
+	char para[256] = { 0 };
+	char sql[192] = { 0 };
+	char SOS_A[13] = {0};
+	char SOS_B[13] = {0};
+	char SOS_C[13] = {0};
+	unsigned char pack[8+APP_KEY_LEN] = {0};
+	unsigned char sos = 0;
+	unsigned int res = 0;
+	sequen = (buf[7]<<8)+buf[8];
+	hd16 = (buf[9]<<8)+buf[10];
+	ld16 = (buf[11]<<8)+buf[12];
+
+	index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+	w_printf("with watch: %s\n",mInfo[mfd].wid);
+//	w_printf("set index: %d\n",index);
+	if(whInfo[index].whiv != 0)		// 手表在线
+	{
+		switch(sequen)
+		{
+		case 0x2D:
+			sprintf(para,"@B#@,V01,45,%d,@E#@",ld16);
+			break;
+		case 0x6F:
+			sprintf(para,"@B#@,V01,111,%d,@E#@",ld16);
+			break;
+		case 0x19:
+			sprintf(para,"@B#@,V01,25,@E#@");
+			break;
+		case 0x31:
+			sprintf(para,"@B#@,V01,49,%d,@E#@",ld16);
+			break;
+		case 0x2F:
+			sprintf(para,"@B#@,V01,47,%d,%d,23080,@E#@",hd16,ld16);
+			break;
+		case 0x70:
+			sprintf(para,"@B#@,V01,112,%d,%d,23080,@E#@",hd16,ld16);
+			break;
+		case 0x12:		// 吃药提醒
+			sprintf(para,"@B#@,V01,18,%d,%d%d,%d,5658,@E#@",buf[11],buf[9],buf[10],buf[12]);
+			break;
+		case 0x13:
+			sprintf(para,"@B#@,V01,19,%d,@E#@",ld16);
+			break;
+		case 0x6B:
+			break;
+		default:
+			stat = (buf[5]<<8)+buf[6];
+			if(stat == 0xA102)
+			{
+				if(buf[7])
+				{
+					HexToString(SOS_A,&buf[7],6);
+					sos = 1;
+					if(buf[13])		// >0
+					{
+						HexToString(SOS_B,&buf[13],6);
+						if(buf[19])	// >0
+						{
+							HexToString(SOS_C,&buf[19],6);
+							sprintf(para,"@B#@,V01,106,3,%s|%s|%s,12554,@E#@",&SOS_A[1],&SOS_B[1],&SOS_C[1]);
+						}
+						else
+							sprintf(para,"@B#@,V01,106,2,%s|%s,12554,@E#@",&SOS_A[1],&SOS_B[1]);
+					}
+					else
+						sprintf(para,"@B#@,V01,106,1,%s,12554,@E#@",&SOS_A[1]);
+				}
+				break;
+			}
+			break;
+		}
+		pLen = strlen(para);
+		if(pLen > 0)
+		{
+			w_printf("old watch para: %s\n",para);
+			if(whInfo[index].whiv)
+			{
+				if(_write(whInfo[index].whiv,para,pLen))
+				{
+					if(sos)
+					{
+						snprintf(sql,sizeof(sql),
+								"update T_WATCH_CONF set W_SOS_A = '%s',W_SOS_B = '%s',W_SOS_C = '%s' where w_id='%s'",
+								SOS_A,SOS_B,SOS_C,mInfo[mfd].wid);		// 更新数据库
+						s_printf("sos sql: %s\n",sql);
+						OciInsert(sql);
+					}
+					res = 0xB001;
+				}
+				else
+					res = 0xB000;
+			}
+			else
+				res = 0xB002;
+		}
+		else
+			res = 0xB000;
+	}
+	else
+	{
+		res = 0xB002;
+		w_printf("old watch offline,para set failed!\n");
+	}
+	RPBack(res,pack,8+APP_KEY_LEN);
+	memcpy(&pack[7],&buf[len-APP_KEY_LEN-1],APP_KEY_LEN);
+	_write(mfd,pack,8+APP_KEY_LEN);
+	return 1;
+}
+
+int ParaSet(int wfd,int value,WINF *pWf)
+{
+	int len = 0,rs = 1;
+	char lenght[4] = {0};
+	char para[64] = {0};
+	switch(value)
+	{
+	case 0:				// 上传间隔设置
+		if(MUTI < 10)
+			len = 7 + 1;
+		else if(MUTI < 100)
+			len = 7 + 2;
+		else if(MUTI < 1000)
+			len = 7 + 3;
+		else
+			len = 7 + 4;
+		if(LenghtConver(lenght,len))
+		{
+			sprintf(para,"%c%s%c%s%c%s%c%s%c%d%c",'[',pWf->head,'*',pWf->id,'*',lenght,'*',"UPLOAD",',',MUTI,']');
+			if(!_write(wfd,para,strlen(para)))
+				rs = 0;
+		}
+		break;
+	case 1:		// 定位
+		sprintf(para,"%c%s%c%s%c%s%c%s%c",'[',pWf->head,'*',pWf->id,'*',"0002",'*',"CR",']');
+		if(!_write(wfd,para,strlen(para)))
+			rs = 0;
+		break;
+	case 2:		// sos setting
+		sprintf(para,"%c%s%c%s%c%s%c%s%s%c",'[',pWf->head,'*',pWf->id,'*',"0027",'*',"SOS",pWf->context,']');
+		if(!_write(wfd,para,strlen(para)))
+			rs = 0;
+		break;
+	default:
+		break;
+	}
+	w_printf("Set para[%d]: %s\n",value,para);
+	return rs;
+}
+
+int PositionInfo(int wfd,char* src,WINF *pWf)		// child watch
+{
+	char temp[15] = {0};
+	char rssi_s[5] = {0};
+	int speed,high,index,rssi;
+
+//	sscanf(src,"%[^,]",cdate);
+//	sscanf(src,"%*[^,],%[^,]",ctime);
+//	sscanf(src,"%*[^,],%*[^,],%[^,]",temp);
+//	llFormat(pWf->sGi.llat,pWf->sGi.lat);
+//	sscanf(src,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%[^,]",pWf->sGi.llon); // 经度
+//	llFormat(pWf->sGi.llon,pWf->sGi.lon);
+
+	memset(temp,0x00,14);
+	sscanf(src,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%10[^,]",temp); // 速度
+	speed = (int)atof(temp);
+
+	index = kmp(src,",460,");
+	if(index != -1)
+	{
+		index += 5;
+		if(sscanf(&src[index],"%5[^,]",pWf->mnc) == 1)
+		{
+			sscanf(&src[index],"%*[^,],%5[^,]",pWf->lac[0]);
+			sscanf(&src[index],"%*[^,],%*[^,],%5[^,]",pWf->cellid[0]);
+			if(sscanf(&src[index],"%*[^,],%*[^,],%*[^,],%4[^,]",rssi_s) == 1)
+			{
+				rssi = atoi(rssi_s);
+	//			rssi = abs(((rssi*0.3)<<1) - 113);
+	//			sprintf(pWf->rssi_a,"-%d",rssi);
+				rssi = ((rssi*0.3)*2) - 113;
+				sprintf(pWf->rssi[0],"%d",rssi);
+				memset(rssi_s,0x00,5);
+				sscanf(&src[index],"%*[^,],%*[^,],%*[^,],%*[^,],%5[^,]",pWf->lac[1]);
+				sscanf(&src[index],"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%5[^,]",pWf->cellid[1]);
+				sscanf(&src[index],"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%4[^,]",rssi_s);
+	//			w_printf("pWf->cellid_b: %s\n",pWf->cellid_a);
+	//			w_printf("pWf->rssi_b: %s\n",pWf->rssi_a);
+				rssi = atoi(rssi_s);
+				rssi = ((rssi*0.3)*2) - 113;
+				sprintf(pWf->rssi[1],"%d",rssi);
+	//			rssi = abs((rssi-110)<<1);
+	//			sprintf(pWf->rssi_b,"-%d",rssi);
+				pWf->lbn = 2;
+			}
+			else
+				pWf->lbn = 1;
+		}
+	}
+
+	if(GetLBS(pWf))
+	{
+		llFormat(pWf->sGi.llon,pWf->sGi.lon);
+		llFormat(pWf->sGi.llat,pWf->sGi.lat);
+		wInfo[wfd].sLLInfo.lat = atof(pWf->sGi.llat);
+		wInfo[wfd].sLLInfo.lon = atof(pWf->sGi.llon);
+		pWf->sGi.flag = 'A';
+	}
+	else
+		pWf->sGi.flag = 'V';
+
+	w_printf("child watch lat: %s\n",pWf->sGi.llat);
+	w_printf("child watch lon: %s\n",pWf->sGi.llon);
+
+	if(speed > 255)
+	{
+		pWf->sGi.speed[0] = (speed >> 8);
+		pWf->sGi.speed[1] = (speed & 0xFF);
+	}
+	else
+	{
+		pWf->sGi.speed[0] = 0;
+		pWf->sGi.speed[1] = speed;
+	}
+
+//	memset(temp,0x00,14);
+//	sscanf(src,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%[^,]",temp); // 方向
+
+	memset(temp,0x00,14);
+	sscanf(src,"%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%8[^,]",temp);	// 高度
+
+	high = (int)atof(temp);
+	if(high > 255)
+	{
+		pWf->sGi.high[0] = (high >> 8);
+		pWf->sGi.high[1] = (high & 0xFF);
+	}
+	else
+	{
+		pWf->sGi.high[0] = 0;
+		pWf->sGi.high[1] = high;
+	}
+	return 1;
+}
+
+int mSosCheck(int mfd,unsigned char* buf,int len)
+{
+	int index = 0;
+	char sql[256] = { 0 };
+	char temp[12] = { 0 };
+	const char pattern[2] = {0x01};
+	unsigned char pack[26+APP_KEY_LEN] = { 0 };
+	unsigned char res = 0;
+	char *result = malloc(sizeof(char)*48);
+	char *p = result;
+	snprintf(sql,sizeof(sql),"select W_SOS_A,W_SOS_B,W_SOS_C from t_watch_conf where w_r_id = '%s'",mInfo[mfd].id);
+
+	s_printf("SOS check sql: %s\n",sql);
+
+	res = CheckOneRow(result,sql,40);
+	if(res)
+	{
+		index = kmp(result,pattern);
+		if(index != -1)
+		{
+			memcpy(temp,result,index);			// sos 1
+			StringToHex(&pack[7],temp);
+			result += index+1;
+			w_printf("SOS check A: %s\n",temp);
+
+			index = kmp(result,pattern);
+			if(index != -1)
+			{
+				memcpy(temp,result,index);		// sos 2
+				StringToHex(&pack[13],temp);
+				result += index+1;
+				w_printf("SOS check B: %s\n",temp);
+
+				memset(temp,0x00,12);
+				index = kmp(result,pattern);
+				if(index != -1)
+				{
+					memcpy(temp,result,index);		// sos 3
+					StringToHex(&pack[19],temp);
+					w_printf("SOS check C: %s\n",temp);
+				}
+			}
+			pack[6] = 0x03;
+		}
+		else
+			pack[6] = 0x04;
+
+	}
+	else
+		pack[6] = 0x04;
+	pack[0] = 0xfd;
+	pack[1] = 0x00;
+	pack[2] = 26+APP_KEY_LEN;
+	pack[5] = 0xAB;
+	GetKey(mInfo[mfd].aKey, buf, len);
+	memcpy(&pack[25],mInfo[mfd].aKey,APP_KEY_LEN);
+	pack[26+APP_KEY_LEN-1] = 0xFF;
+	_write(mfd,pack,26+APP_KEY_LEN);
+	free(p);
+	return 1;
+}
+
+int UpdateWid(void)			// update watch id
+{
+	int rs;
+	char *sql = "select w_id from t_watch_conf";
+	CHECK_DATA *head = (CHECK_DATA *)malloc(sizeof(CHECK_DATA));
+	memset(head , 0x00, sizeof(CHECK_DATA));
+
+	sem_wait(&sem_or);
+	rs = OciCheck(sql,head);
+	sem_post(&sem_or);
+	if(rs != -1)
+	{
+		if(head != NULL)
+		{
+			if(rs > 0)		// Multiple row
+			{
+				while (head->next != NULL)
+				{
+					head = head->next;
+					if(strlen(head->buf) < 17)
+					{
+						InsertHash(head->buf, WidHash,MHI);
+						lprintf(lfd, INFO, "Watch: ID [%s] update success!",head->buf);
+					}
+				}
+				lprintf(lfd, INFO, "Watch: ID update success!");
+			}
+		}
+	}
+	else
+		lprintf(lfd, FATAL, "Watch: OCI check and watch id update failed!");
+	FreeRS(head);
+	return 1;
+}
+
+int llFormat(char *src,unsigned char *dst)
+{
+	int len,i=0;
+	char *p = src;
+	char temp[12]= {0};
+	len = strlen(p);
+	if(len < 4 && len > 12)
+		return 0;
+	if(kmp(src,".") == -1)
+		return 0;
+	len = len-1;
+	while(len--)
+	{
+		if(*p != 0x2E)
+			temp[i++] = *(p++);
+		else
+			break;
+	}
+	p++,i=0;
+	if(strlen(temp) < 4)
+	{
+		dst[i++] = ValueConver(temp);
+		memset(temp,0x00,4);
+		len = strlen(p);
+		while(len > 0)
+		{
+			temp[0] = *(p++);
+			temp[1] = *(p++);
+			dst[i++] = ValueConver(temp);
+			len -= 2;
+		}
+	}
+	else
+		return 0;
+	return 1;
+}
+
+int GetNumber(unsigned char* src,unsigned char* dst,int sLen)
+{
+	if(sLen % 6 != 0)
+		return 0;
+	int i,j=1;
+	unsigned char temp[11] = {0};
+	for(i=0; i<sLen; i++)
+	{
+		*(dst++) = ((*src) >> 4) + 48;
+		*(dst++) = ((*(src++)) & 0xF) + 48;
+	}
+	dst -= (sLen << 1);
+	dst++;
+	j = (sLen<<1)/12;
+	for(i=0; i<j;)
+	{
+		memcpy(temp,dst,11);
+		memcpy((dst-(++i)),temp,11);
+		dst += 12;
+	}
+	dst -= (sLen << 1)+1;
+	return 1;
+}
+
+int LenghtConver(char* src,int len)
+{
+	char *p = src;
+	if(len < 16)
+	{
+		*(p++) = '0';
+		*(p++) = '0';
+		*(p++) = '0';
+		sprintf(p,"%x",len);
+		memcpy(src,p,4);
+	}
+	else if(len < 256)
+	{
+		*(p++) = '0';
+		*(p++) = '0';
+		sprintf(p,"%x",len);
+		memcpy(src,p,4);
+	}
+	else if(len < 4096)
+	{
+		*(p++) = '0';
+		sprintf(p,"%x",len);
+		memcpy(src,p,4);
+	}
+	else
+		return 0;
+	return 1;
+}
+
+/*****************************
+ * SRC->字符串	return->数字
+ ****************************/
+int LenghtCalc(char* src)
+{
+	int value;
+	char *p = src;
+	if(strlen(src) != 4)
+		return -1;
+	const unsigned char ASCValue[128] = {
+			0,0,0,0,0,0,0,0,0,0,		// 0-9
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,1,
+			2,3,4,5,6,7,8,9,0,0,
+			0,0,0,0,0,10,11,12,13,14,
+			15,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,10,11,12,
+			13,14,15,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0
+	};
+	value = ASCValue[(unsigned char)*(p++)] << 12;
+	value += ASCValue[(unsigned char)*(p++)] << 8;
+	value += ASCValue[(unsigned char)*(p++)] << 4;
+	value += ASCValue[(unsigned char)*(p++)];
+	return value;
+}
+
+int ValueConver(char* src)
+{
+	int value = 0;
+	char *p = src;
+	if(strlen(p) > 3)
+		return -1;
+	const unsigned ASCValue[128] = {
+			0,0,0,0,0,0,0,0,0,0,		// 0-9
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,1,
+			2,3,4,5,6,7,8,9,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0,0,0,
+			0,0,0,0,0,0,0,0
+	};
+	switch(strlen(p))
+	{
+	case 3:
+		value = ASCValue[(unsigned char)*(p++)] * 100;
+		value += ASCValue[(unsigned char)*(p++)] * 10;
+		value += ASCValue[(unsigned char)*(p++)];
+		break;
+	case 2:
+		value = ASCValue[(unsigned char)*(p++)] * 10;
+		value += ASCValue[(unsigned char)*(p++)];
+		break;
+	case 1:
+		value = ASCValue[(unsigned char)*(p++)];
+		break;
+	default:
+		break;
+	}
+	return value;
+}
+
+int eFenceSwitch(int mfd,unsigned char *buf,int len)
+{
+	int index,wfd,res;
+	unsigned char bPack[16] = {0};
+	char sql[256] = {0};
+
+	index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+	wfd = whInfo[index].whiv;
+	if(buf[8] == 0x01 || buf[8] == 0x00)
+	{
+		snprintf(sql,sizeof(sql),"update t_watch_conf set w_fence_cycle='%d' where w_id='%s'",buf[8],mInfo[mfd].wid);
+		res = OciInsert(sql)?0xAD01:0xAD02;
+		if(res == 0xAD01)
+			wInfo[wfd].sLLInfo.on = buf[8];
+	}
+	else
+		res = 0xAD02;
+	bPack[0] = 0xfd;
+	bPack[1] = 0x00;
+	bPack[2] = 0x10;
+	bPack[5] = res>>8;
+	bPack[6] = res&0x00FF;
+	GetKey(&bPack[7],buf,len);
+	bPack[15] = 0xff;
+	_write(mfd,bPack,16);
+	return 0;
+}
+
+int eFenceSet(int mfd,unsigned char *buf,int len)
+{
+	char sql[256] = {0};
+	int index = 0,wfd = 0;
+	char llat[13] = {0};
+	char llon[13] = {0};
+	unsigned char bPack[16] = {0};
+	unsigned char lat[5] = {0};
+	unsigned char lon[5] = {0};
+	unsigned int radius = 0;
+	unsigned int res = 0;
+	unsigned int cycle = 0;
+	CLLocationCoordinate2D c2;
+	cycle += buf[7]<<24;
+	cycle += buf[8]<<16;
+	cycle += buf[9]<<8;
+	cycle += buf[10];
+	radius += buf[11]<<24;
+	radius += buf[12]<<16;
+	radius += buf[13]<<8;
+	radius += buf[14];
+	memcpy(lon,&buf[16],5);		// 经度
+	memcpy(lat,&buf[22],5);
+	HexToD(lon,llon,5);
+	HexToD(lat,llat,5);
+	if(cycle == 0xFFFFFFFF)
+		cycle = 1;
+	else if(cycle == 0)
+		cycle = 0;
+
+	c2.latitude = atof(llat);
+	c2.longitude = atof(llon);
+	c2 = Bd2Wgs(c2);
+	snprintf(sql,sizeof(sql),"update t_watch_conf set w_fence_radius='%u',w_fence_lat='%.8lf',w_fence_lon='%.8lf',w_fence_cycle='%d' where w_id='%s'",radius,c2.latitude,c2.longitude,cycle,mInfo[mfd].wid);
+	s_printf("Fence set: %s\n",sql);
+	res =  OciInsert(sql)?0xAD01:0xAD02;
+	bPack[0] = 0xfd;
+	bPack[1] = 0x00;
+	bPack[2] = 0x10;
+	bPack[5] = res>>8;
+	bPack[6] = res&0x00FF;
+	GetKey(&bPack[7],buf,len);
+	bPack[15] = 0xff;
+	_write(mfd,bPack,16);
+	if(res == 0xAD01)
+	{
+		index = GetHashTablePos(mInfo[mfd].wid,WidHash,MHI);
+		if(index > 0)
+		{
+			wfd = whInfo[index].whiv;
+			wInfo[wfd].sLLInfo.radius = radius;
+			wInfo[wfd].sLLInfo.base_lat = atof(llat);
+			wInfo[wfd].sLLInfo.base_lon = atof(llon);
+			wInfo[wfd].ef_flag = 0;
+		}
+		return 1;
+	}
+	else
+		return 0;
+}
+
+double EarthDis(P_LON_LAT LonLat)
+{
+  	double  tmpVal,dis,D;
+  	double  fi1,fi2,drda;
+	if(fabs(LonLat->base_lon - LonLat->base_lat) < 0.00001)
+		return 1.0;
+	if(fabs(LonLat->lat - LonLat->lon) < 0.00001)
+		return 1.0;
+	drda = (LonLat->base_lon) - (LonLat->lon);
+  	drda = drda*M_PI/180.0;
+  	fi1 = LonLat->lat;
+  	fi2 = LonLat->base_lat;
+  	fi1 = fi1 * M_PI / 180.0;
+  	fi2 = fi2 * M_PI / 180.0;
+  	tmpVal = sin(fi1)*sin(fi2)+cos(fi1)*cos(fi2)*cos(drda);
+  	if(fabs(tmpVal) > 1.0)
+  		return -1.0;
+  	D = acos(tmpVal);
+  	double tmp1,tmp2;
+  	tmp1=(sin(fi1) + sin(fi2));
+  	tmp2=(sin(fi1) - sin(fi2));
+  	tmpVal = ((3*sin(D) - D)*tmp1*tmp1 ) / (1+cos(D));
+  	tmpVal = tmpVal - ((3*sin(D) + D)*tmp2*tmp2) / (1-cos(D));
+  	dis = EARTH_WGS84_A*D + (EARTH_WGS84_A/(4*EARTH_WGS84_FLATTENING)) * tmpVal;
+	return dis;	// unit m
+}
+
+int HexToD(unsigned char* src,char* dst,int len)		// hex convert to dergon
+{
+	if(len > 6)
+		return 0;
+	unsigned char *p = src;
+	int index,i,j=0;
+	index = sprintf(dst,"%d",*(p++));
+	j += index;
+	dst[j++] = '.';
+	for(i=0;i<=(len-2);i++)
+	{
+		index = sprintf(&dst[j],"%02d",*(p++));
+		j += index;
+	}
+	return 1;
+}
+
+void *EFServer(void *arg)		// elect fence server
+{
+	struct timeval ntime;
+	struct timespec sleeptm;
+	int index,i,interval;
+	double dis = 0;
+	char context[256] = {0};
+	char cst[128] = { 0 };
+	CodeConv("电子围栏警报,超出围栏距离:%.0fm",cst,"utf-8","gbk");
+	sleeptm.tv_sec = 0;
+	sleeptm.tv_nsec = 90000000UL;
+	while(1)
+	{
+		gettimeofday(&ntime, NULL);
+		for(i=0; i<MAX_REC; i++)
+		{
+		//	if(wInfo[i].type == 1)		// child
+			{
+				if(wInfo[i].sLLInfo.on && wInfo[i].sLLInfo.radius > 15)// && wInfo[i].sLLInfo.flag)		// open fence and already
+				{
+		//			w_printf("lat[%d]: %lf\n",i,wInfo[i].sLLInfo.base_lat);
+		//			w_printf("lon[%d]: %lf\n",i,wInfo[i].sLLInfo.base_lon);
+		//			w_printf("lat[%d]: %lf\n",i,wInfo[i].sLLInfo.lat);
+		//			w_printf("lon[%d]: %lf\n",i,wInfo[i].sLLInfo.lon);
+					dis = EarthDis(&wInfo[i].sLLInfo);
+					if(dis > wInfo[i].sLLInfo.radius)	// over setting range
+					{
+		//				w_printf("dis: %f\n",dis);
+						if(wInfo[i].ef_flag == 0)
+						{
+							interval = FENCE_INTER+1;
+							wInfo[i].ef_flag = 1;
+						}
+						else
+							interval = ntime.tv_sec - wInfo[i].sLLInfo.LRTime;
+
+						if(interval > FENCE_INTER)		// 30 分钟一次
+						{
+							wInfo[i].sLLInfo.LRTime = ntime.tv_sec;
+							index = GetHashTablePos(wInfo[i].rid,RidHash,MHI);
+							if(hInfo[index].rhiv > 0)			// robot online
+							{
+					//			PushMessage(wInfo[i].alias,"电子围栏越界报警！",1);
+								PushMessageV3(0,4,wInfo[i].alias,"电子围栏越界报警!",0);
+								memset(context,0x00,256);
+								snprintf(context,sizeof(context),cst,dis);
+								SendMSG(1,context,rInfo[hInfo[index].rhiv].mPhone);
+							}
+							w_printf("Elect fence send phone: %d\t%s\t%s\n",index,wInfo[i].rid,rInfo[hInfo[index].rhiv].mPhone);
+						}
+					}
+				}
+			}
+		}
+		nanosleep(&sleeptm,NULL);
+	}
+}
+
+void fun(int rssi[],int num,int a)
+{
+	int min=20000,i,index;
+	index = 0;
+	if(a > num)
+	{
+		for(i=0; i<num; i++)
+		{
+			if(rssi[i])
+			{
+				if(min > rssi[i])
+				{
+					min = rssi[i];
+					index = i;
+				}
+			}
+		}
+		rssi[index] = 0;
+		fun(rssi,num,--a);
+	}
+}
+
+int oRssiSort(char *src,WINF* pWf)
+{
+	int index = 0 ,i ,num ,offset=0,j,rssi_i;
+	int rssi[10] = {0};
+	char rssi_s[4] = {0};
+	index = kmp(src,",460;");
+	if(index != -1)
+	{
+		sscanf((src+index+5),"%2[^;]",pWf->mnc);
+		if(*(src+index-2)== ',')
+			num = *(src+index-1) - 48;
+		else
+			num = (*(src+index-2)-48)*10 + (*(src+index-1)-48);
+		num = num>10?10:num;
+		if(num > 0)
+		{
+			if(num > 3)
+			{
+				index += 5;
+				offset += index;
+				for(i=0; i<num; i++)
+				{
+					sscanf((src+offset),"%*[^;];%*[^;];%*[^;];%4[^|,;]",rssi_s);
+					rssi[i] = atoi(rssi_s);
+					memset(rssi_s,0x00,4);
+					index = kmp((src+offset),"|460;");
+					if(index == -1)
+					{
+						num = i+1;
+						break;
+					}
+					else
+					{
+						index += 5;
+						offset += index;
+					}
+				}
+				i++;
+				j = (i-3)+i;
+				fun(rssi,i,j);
+				offset = j = 0 ;
+				for(i=0; i<num; i++)
+				{
+					if(rssi[i])
+					{
+						sscanf((src+offset),"%*[^;];%5[^;]",pWf->lac[j]);
+						sscanf((src+offset),"%*[^;];%*[^;];%5[^;]",pWf->cellid[j]);
+						w_printf("pWf->cellid[%d]: %s\n",j,pWf->cellid[j]);
+						memset(rssi_s,0x00,4);
+						sscanf((src+offset),"%*[^;];%*[^;];%*[^;];%4[^|,;]",rssi_s);
+						rssi_i = (atoi(rssi_s) << 1) - 113;
+						sprintf(pWf->rssi[j++],"%d",rssi_i);
+					}
+					index = kmp((src+offset),"|460;");
+					if(index == -1)
+					{
+						num = i+1;
+						break;
+					}
+					else
+					{
+						index += 5;
+						offset += index;
+					}
+				}
+			}
+			else
+			{
+				index += 5;
+				src += index;
+				for(i=0; i<num; i++)
+				{
+					sscanf(src,"%*[^;];%5[^;]",pWf->lac[i]);
+					sscanf(src,"%*[^;];%*[^;];%5[^;]",pWf->cellid[i]);
+					memset(rssi_s,0x00,6);
+					sscanf(src,"%*[^;];%*[^;];%*[^;];%4[^|,;]",rssi_s);
+					rssi_i = (atoi(rssi_s) << 1) - 113;
+					sprintf(pWf->rssi[i],"%d",rssi_i);
+					index = kmp((src+offset),"|460;");
+					if(index == -1)
+					{
+						num = i+1;
+						break;
+					}
+					else
+					{
+						index += 5;
+						src += index;
+					}
+				}
+			}
+		}
+		else
+			return 0;
+	}
+	else
+		return 0;
+	return num;
+}
+int cRssiSort(char *src)
+{
+	return 1;
+}
+

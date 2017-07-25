@@ -1,0 +1,405 @@
+#include "../inc/main.h"
+#include "../inc/network.h"
+
+int kdpfd;
+int mkdpfd;
+int wkdpfd;
+int pkdpfd;
+int wsfd,psfd,rsfd,msfd;
+struct epoll_event ev;
+struct epoll_event evm;
+struct epoll_event evw;
+struct epoll_event evp;
+
+struct epoll_event events[MAXEPOLLSIZE];
+struct epoll_event eventm[MAXEPOLLSIZE];
+struct epoll_event eventw[MAXEPOLLSIZE];
+struct epoll_event eventp[MAXEPOLLSIZE];
+
+//static void UdpProcess(int *ufd);
+//static void TcpProcess(int tfd);
+
+/******* setnonblocking - 设置句柄为非阻塞方式 *******/
+int setnonblocking(int sockfd)
+{
+	struct timeval timeout = { 3, 0 };
+	int mw_optval = 1;
+	int nRecvBuf = 512*1024;		//	512K
+	int nSendBuf = 512*1024;		//	512K
+	setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT,(char *)&mw_optval,sizeof(mw_optval));
+	setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,(char *)&mw_optval,sizeof(mw_optval)); 	// 设置端口多重邦定
+	setsockopt(sockfd,SOL_SOCKET,SO_SNDTIMEO,(char *)&timeout,sizeof(timeout));
+	setsockopt(sockfd,SOL_SOCKET,SO_RCVTIMEO,(char *)&timeout,sizeof(timeout));
+	setsockopt(sockfd,SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int));
+	setsockopt(sockfd,SOL_SOCKET,SO_SNDBUF,(const char*)&nSendBuf,sizeof(int));
+	if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFD, 0)|O_NONBLOCK) == -1)
+		return 0;
+	return 1;
+}
+
+void *PhotoServer(void *arg)
+{
+	struct timeval ntime;
+	int nfds, n, pfd;
+	struct sockaddr_in ser_addr, cli_addr;
+	socklen_t len = sizeof(cli_addr);
+	if ((psfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) 	// 开启 socket 监听
+	{
+		lprintf(lfd, FATAL, "Photo: TCP Socket error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Photo: TCP socket create success!");
+
+	setnonblocking(psfd);		// 设置非阻塞模式
+
+	bzero(&ser_addr, sizeof(ser_addr));
+	ser_addr.sin_family = PF_INET;
+	ser_addr.sin_port = htons((uint16_t)atoi(arg));
+	ser_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(psfd, (struct sockaddr *) &ser_addr, sizeof(struct sockaddr)) == -1)
+	{
+		lprintf(lfd, FATAL, "Photo: TCP bind error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Photo: TCP bind success!");
+	if (listen(psfd, MAXLISTEN) == -1)
+	{
+		lprintf(lfd, FATAL, "Photo: TCP listen error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Photo: TCP listen success!");
+	pkdpfd = epoll_create(MAXEPOLLSIZE); 	// 创建 epoll句柄，把监听socket加入到epoll集合里
+	evp.events = EPOLLIN | EPOLLET | EPOLLRDHUP; 		// 注册epoll 事件
+	evp.data.fd = psfd;
+	if (epoll_ctl(pkdpfd, EPOLL_CTL_ADD, psfd, &evp) < 0)
+	{
+		lprintf(lfd, FATAL, "Photo: EPOLL_CTL_ADD error!");
+		exit(0);
+	}
+	while (1)
+	{
+    //	sem_wait(&sem_ptcp);     	// 等待 sem_TCP
+	//	sem_wait(&sem_mtp);			// 将tp值减一
+		nfds = epoll_wait(pkdpfd, eventp, MAXEPOLLSIZE, 20); // 等待有事件发生
+		if (nfds == -1)
+			lprintf(lfd, FATAL,"Photo: EPOLL_WAIT %s!",strerror(errno));
+		for (n = 0; n < nfds; ++n) 	// 处理epoll所有事件
+		{
+			if (eventp[n].data.fd == psfd) // 如果是连接事件
+			{
+				while((pfd = accept(psfd, (struct sockaddr *) &cli_addr,&len)) > 0)
+				{
+		//			lprintf(lfd, INFO, "Photo: TCP Client from [%s]\tSocket ID [%d]", inet_ntoa(cli_addr.sin_addr) ,pfd);
+					setnonblocking(pfd);		// 设置新连接为非阻塞模式
+					evp.events = EPOLLIN | EPOLLET | EPOLLRDHUP;	// 注册新连接
+					evp.data.fd = pfd;
+					if (epoll_ctl(pkdpfd, EPOLL_CTL_ADD, pfd, &evp) < 0) // 将新连接加入EPOLL的监听队列
+						lprintf(lfd, FATAL, "Photo: EPOLL_CTL_ADD error!");
+					else
+					{
+						gettimeofday(&ntime, NULL);
+						pInfo[pfd].cntime = ntime.tv_sec;		// 登记接入时间
+						pInfo[pfd].pfd = pfd;
+						snprintf(pInfo[pfd].ip,16,"%s",inet_ntoa(cli_addr.sin_addr));
+					}
+				}
+				if(pfd == -1)
+				{
+					if(errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR)
+						lprintf(lfd, FATAL, "Photo: accept error!");
+				}
+			}
+			else if(eventp[n].events & EPOLLRDHUP)		// 2.6.17 UP	0x2000
+				ResetPClient(eventm[n].data.fd);		// close photo port client
+			else if (eventp[n].events & EPOLLIN)
+				tpool_add_work(pool, PhotoProcess, eventp[n].data.fd);		// 读取分析TCP信息
+			else
+			{
+				epoll_ctl(pkdpfd, EPOLL_CTL_DEL, eventp[n].data.fd, &evp);
+				close(eventp[n].data.fd);
+			}
+		}
+    //	sem_post(&sem_pcm);
+	//	sem_post(&sem_udp);
+	}
+	close(psfd);
+}
+
+void *RobotServer(void *arg)
+{
+	int nfds, n, lisnum, rfd;
+	struct timeval ntime;
+	struct sockaddr_in ser_addr, cli_addr;
+
+	socklen_t len = sizeof(cli_addr);
+	lisnum = MAXLISTEN;
+	if ((rsfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) 	// 开启 socket 监听
+	{
+		lprintf(lfd, FATAL, "Robot: Socket error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Robot: Socket create success!");
+	bzero(&ser_addr, sizeof(ser_addr));
+	ser_addr.sin_family = PF_INET;
+	ser_addr.sin_port = htons((uint16_t)atoi(arg));
+	ser_addr.sin_addr.s_addr = INADDR_ANY;
+	setnonblocking(rsfd);		// 设置非阻塞模式
+	if (bind(rsfd, (struct sockaddr *) &ser_addr, sizeof(struct sockaddr)) == -1)
+	{
+		lprintf(lfd, FATAL, "Robot: TCP bind error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Robot: TCP bind success!");
+	if (listen(rsfd, lisnum) == -1)
+	{
+		lprintf(lfd, FATAL, "Robot: TCP listen error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Robot: TCP listen success!");
+	kdpfd = epoll_create(MAXEPOLLSIZE);
+	ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP ; 		// 注册epoll 事件
+	ev.data.fd = rsfd;
+	if (epoll_ctl(kdpfd, EPOLL_CTL_ADD, rsfd, &ev) < 0)
+	{
+		lprintf(lfd, FATAL, "Robot: EPOLL_CTL_ADD error!");
+		exit(1);
+	}
+	while (1)
+	{
+	//	sem_wait(&sem_rcm);
+		nfds = epoll_wait(kdpfd, events, MAXEPOLLSIZE, 20);
+		if (nfds == -1)
+		{
+			lprintf(lfd, FATAL,"Robot: EPOLL_WAIT %s!",strerror(errno));
+			continue;
+		}
+		for (n = 0; n < nfds; ++n)
+		{
+			if (events[n].data.fd == rsfd) // 如果是连接事件
+			{
+				while ((rfd = accept(rsfd, (struct sockaddr *) &cli_addr,&len)) > 0)
+				{
+				//	lprintf(lfd, INFO, "Robot: TCP Client from [%s]\tSocket ID [%d]", inet_ntoa(cli_addr.sin_addr),rfd);
+					setnonblocking(rfd);
+					ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;	// 注册新连接
+					ev.data.fd = rfd;
+					if(epoll_ctl(kdpfd, EPOLL_CTL_ADD, rfd, &ev) < 0) // 将新连接加入EPOLL的监听队列
+						lprintf(lfd, FATAL, "Robot: EPOLL_CTL_ADD error!");
+					else
+					{
+						gettimeofday(&ntime, NULL);
+						rInfo[rfd].cntime = ntime.tv_sec;		// 登记接入时间
+						rInfo[rfd].tfd = rfd;
+						snprintf(rInfo[rfd].ip,16,"%s",inet_ntoa(cli_addr.sin_addr));
+					}
+				}
+				if(rfd == -1)
+				{
+					if(errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR)
+						lprintf(lfd, FATAL, "Robot: TCP accept error!");
+				}
+			}
+			else if(events[n].events & EPOLLRDHUP)		// 2.6.17 UP	0x2000
+				ResetRClient(events[n].data.fd);		// close client
+			else if (events[n].events & EPOLLIN)		// 0x001
+				tpool_add_work(pool, RobotProcess, events[n].data.fd);		// 读取分析TCP信息
+			else
+			{
+			 	epoll_ctl(kdpfd, EPOLL_CTL_DEL, events[n].data.fd, &ev);
+			 	close(events[n].data.fd);
+			}
+		}
+	//	sem_post(&sem_rcm);
+	}
+	close(rsfd);
+}
+
+void *MobServer(void *arg)
+{
+	int nfds, n ,mfd;
+	struct timeval ntime;
+	struct sockaddr_in ser_addr, cli_addr;
+	socklen_t len = sizeof(cli_addr);
+	if ((msfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) 	// 开启 socket 监听
+	{
+		lprintf(lfd, FATAL, "Mobile: TCP Socket error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Mobile: TCP socket create success!");
+	setnonblocking(msfd);		// 设置非阻塞模式
+	bzero(&ser_addr, sizeof(ser_addr));
+	ser_addr.sin_family = PF_INET;
+	ser_addr.sin_port = htons((uint16_t)atoi(arg));
+	ser_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(msfd, (struct sockaddr *) &ser_addr, sizeof(struct sockaddr)) == -1)
+	{
+		lprintf(lfd, FATAL, "Mobile: TCP bind error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Mobile: TCP bind success!");
+	if (listen(msfd, MAXLISTEN) == -1)
+	{
+		lprintf(lfd, FATAL, "Mobile: TCP listen error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Mobile: TCP listen success!");
+	mkdpfd = epoll_create(MAXEPOLLSIZE); 	// 创建 epoll句柄，把监听socket加入到epoll集合里
+	evm.events = EPOLLIN | EPOLLET | EPOLLRDHUP; 		// 注册epoll 事件
+	evm.data.fd = msfd;
+	if (epoll_ctl(mkdpfd, EPOLL_CTL_ADD, msfd, &evm) < 0)
+	{
+		lprintf(lfd, FATAL, "Mobile: EPOLL_CTL_ADD error!");
+		exit(1);
+	}
+	while (1)
+	{
+    //	sem_wait(&sem_mtcp);     	// 等待 sem_TCP
+	//	sem_wait(&sem_mtp);			// 将tp值减一
+		nfds = epoll_wait(mkdpfd, eventm, MAXEPOLLSIZE, 20); // 等待有事件发生
+		if (nfds == -1)
+		{
+			lprintf(lfd, FATAL,"Mobile: EPOLL_WAIT %s!",strerror(errno));
+			continue;
+		}
+		for (n = 0; n < nfds; ++n) 	// 处理epoll所有事件
+		{
+			if (eventm[n].data.fd == msfd) // 如果是连接事件
+			{
+				while ((mfd=accept(msfd, (struct sockaddr *) &cli_addr,&len)) > 0)
+				{
+				//	lprintf(lfd, INFO, "Mobile: TCP Client from [%s]\tSocket ID [%d]", inet_ntoa(cli_addr.sin_addr) ,mfd);
+					setnonblocking(mfd);		// 设置新连接为非阻塞模式
+					evm.events = EPOLLIN | EPOLLET | EPOLLRDHUP ;	// 注册新连接
+					evm.data.fd = mfd;
+					if (epoll_ctl(mkdpfd, EPOLL_CTL_ADD, mfd, &evm) < 0) // 将新连接加入EPOLL的监听队列
+						lprintf(lfd, FATAL, "Mobile: EPOLL_CTL_ADD error!");
+					else
+					{
+						gettimeofday(&ntime, NULL);
+						mInfo[mfd].cntime = ntime.tv_sec;		// 登记接入时间
+						mInfo[mfd].mfd = mfd;
+						snprintf(mInfo[mfd].ip,16,"%s",inet_ntoa(cli_addr.sin_addr));
+					}
+				}
+				if(mfd == -1)
+				{
+					if(errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR)
+						lprintf(lfd, FATAL, "Mobile: accept error!");
+				}
+			}
+			else if(eventm[n].events & EPOLLRDHUP)		// 2.6.17 UP	0x2000
+				ResetMClient(eventm[n].data.fd);		// close mobile client
+			else if (eventm[n].events & EPOLLIN)
+				tpool_add_work(pool, MoblieProcess, eventm[n].data.fd);		// 读取分析TCP信息
+			else
+			{
+				epoll_ctl(mkdpfd, EPOLL_CTL_DEL, eventm[n].data.fd, &evm);
+				close(eventm[n].data.fd);
+			}
+		}
+    //	sem_post(&sem_mcm);
+	//	sem_post(&sem_udp);
+	}
+	close(msfd);
+}
+
+void *WatchServer(void *arg)
+{
+	struct timeval ntime;
+	int nfds, n, lisnum, wfd;
+	struct sockaddr_in ser_addr, cli_addr;
+	socklen_t len = sizeof(cli_addr);
+	lisnum = MAXLISTEN;
+	if ((wsfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) 	// 开启 socket 监听
+	{
+		lprintf(lfd, FATAL, "Watch: TCP Socket error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Watch: TCP socket create success!");
+	setnonblocking(wsfd);		// 设置非阻塞模式
+	bzero(&ser_addr, sizeof(ser_addr));
+	ser_addr.sin_family = PF_INET;
+	ser_addr.sin_port = htons((uint16_t)atoi(arg));
+	ser_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(wsfd, (struct sockaddr *) &ser_addr, sizeof(struct sockaddr)) == -1)
+	{
+		lprintf(lfd, FATAL, "Watch: TCP bind error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Watch: TCP bind success!");
+	if (listen(wsfd, lisnum) == -1)
+	{
+		lprintf(lfd, FATAL, "Watch: TCP listen error!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Watch: TCP listen success!");
+	wkdpfd = epoll_create(MAXEPOLLSIZE); 	// 创建 epoll句柄，把监听socket加入到epoll集合里
+	evw.events = EPOLLIN | EPOLLET | EPOLLRDHUP; 		// 注册epoll 事件
+	evw.data.fd = wsfd;
+	if (epoll_ctl(wkdpfd, EPOLL_CTL_ADD, wsfd, &evw) < 0)
+	{
+		lprintf(lfd, FATAL, "Watch: EPOLL_CTL_ADD error!");
+		exit(1);
+	}
+	while (1)
+	{
+    //	sem_wait(&sem_wtcp);     	// 等待 sem_TCP
+	//	sem_wait(&sem_mtp);			// 将tp值减一
+		nfds = epoll_wait(wkdpfd, eventw, MAXEPOLLSIZE, 2); // 等待有事件发生
+		if (nfds == -1)
+			lprintf(lfd, FATAL,"Watch: EPOLL_WAIT %s!",strerror(errno));
+		for (n = 0; n < nfds; ++n) 	// 处理epoll所有事件
+		{
+			if (eventw[n].data.fd == wsfd) // 如果是连接事件
+			{
+				while ((wfd = accept(wsfd, (struct sockaddr *) &cli_addr,&len)) > 0)
+				{
+		//			lprintf(lfd, INFO, "Watch: TCP Client from [%s]\tSocket ID [%d]", inet_ntoa(cli_addr.sin_addr) ,wfd);
+					setnonblocking(wfd);		// 设置新连接为非阻塞模式
+					evw.events = EPOLLIN | EPOLLET | EPOLLRDHUP;	// 注册新连接
+					evw.data.fd = wfd;
+					if (epoll_ctl(wkdpfd, EPOLL_CTL_ADD, wfd, &evw) < 0) // 将新连接加入EPOLL的监听队列
+						lprintf(lfd, FATAL, "Watch: EPOLL_CTL_ADD error!");
+					else
+					{
+						gettimeofday(&ntime, NULL);
+						wInfo[wfd].cntime = ntime.tv_sec;		// 登记接入时间
+						wInfo[wfd].wfd = wfd;
+						snprintf(wInfo[wfd].ip,16,"%s",inet_ntoa(cli_addr.sin_addr));
+					}
+				}
+				if(wfd == -1)
+				{
+					if(errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR)
+						lprintf(lfd, FATAL, "Watch: accept error!");
+				}
+			}
+			else if(eventw[n].events & EPOLLRDHUP)		// 2.6.17 UP	0x2000
+				ResetWClient(eventw[n].data.fd);		// close mobile client
+			else if (eventw[n].events & EPOLLIN)
+				tpool_add_work(pool, WatchProcess, eventw[n].data.fd);		// 读取分析TCP信息
+			else
+			{
+				epoll_ctl(wkdpfd, EPOLL_CTL_DEL, eventw[n].data.fd, &evw);
+				close(eventw[n].data.fd);
+			}
+		}
+    //	sem_post(&sem_wcm);
+	//	sem_post(&sem_udp);
+	}
+	close(wsfd);
+}
+
+

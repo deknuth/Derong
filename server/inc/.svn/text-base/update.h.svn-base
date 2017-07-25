@@ -1,0 +1,29 @@
+/*
+ * update.h
+ *
+ *  Created on: 2015年7月20日
+ *      Author: Lovenix
+ */
+#include <dirent.h>
+#include <assert.h>
+
+#ifndef INC_UPDATE_H_
+#define INC_UPDATE_H_
+#define UPDIR	"/home/oracle/new/update"
+#define UNAME	"CORE_V"
+#define SUFF	".tar.gz"
+typedef struct u_file{
+	char path[36];
+	unsigned char version[2];
+	unsigned char md5[16];
+	unsigned int len;
+}SFILE;
+extern volatile unsigned char uOn;
+extern SFILE *UFP;
+// extern unsigned char *buffer;		// update file buffer
+
+extern void *CoreUp(void *arg);
+extern int UpdateEnd(int rfd,unsigned char stat);
+
+#endif 	/* INC_UPDATE_H_ */
+

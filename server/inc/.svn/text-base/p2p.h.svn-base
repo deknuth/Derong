@@ -1,0 +1,44 @@
+/*
+ * p2p.h
+ *
+ *  Created on: 2016年8月17日
+ *      Author: Administrator
+ */
+
+#ifndef INC_P2P_H_
+#define INC_P2P_H_
+
+void RealVideoReq(int mfd,int len,unsigned char* pack);
+
+typedef struct tu{
+	unsigned long aIp;		// APP IP
+	unsigned int aPort;		// APP port
+	unsigned char aBit;
+	unsigned long rIp;		// Robot IP
+	unsigned int rPort;		// Robot port
+	unsigned char rBit;
+	char id[8];
+	unsigned char stat;		//
+}P2P;
+
+typedef struct udp{
+	unsigned int p2p_index;
+	unsigned long cfm;		// continue forward mode
+	unsigned long last_cfm;
+	unsigned int count;
+	unsigned char mode;		// 视频模式	0->(P2P) 1->(app to robot)	2->(robot to app)
+	int ufd;
+}UDPI;
+
+#define UDP_FW_TIME 5
+#define P2P_SERVER_IP	"112.74.130.243"
+#define P2P_SERVER_PORT	4036
+extern P2P* uInfo;
+extern UDPI* ucInfo;
+extern sem_t sem_p2p;
+extern struct HashItem* P2PHash;
+// extern struct HashItem* UDPHash;
+extern void *UClientManage(void *arg);
+extern int ClientP2P(char *ip);
+extern int p2p_sfd;
+#endif /* INC_P2P_H_ */

@@ -1,0 +1,9 @@
+#ifndef LOGIC_H_
+#define LOGIC_H_
+extern void RobotProcess(int rfd);
+extern int UpdateRid(void);			// update robot id
+extern void MoblieProcess(int mfd);
+extern int ArmProcess(unsigned char* rBuf,int rfd,int rLen);
+#define APP_KEY_LEN		8
+#endif
+

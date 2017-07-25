@@ -1,0 +1,10 @@
+/*
+ * cgi.h
+ *
+ *  Created on: 2016年6月27日
+ *      Author: Lovenix
+ */
+
+#define	CGI_PATH	"/usr/local/apache/cgi-bin/"
+extern int CreatTempFile(char *name,char* prefix,char* dir,char* path);
+extern int DataReq(int mfd,unsigned char* buf,int len);

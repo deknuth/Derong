@@ -1,0 +1,208 @@
+/*
+ * network.h
+ *
+ *  Created on: 2015年12月26日
+ *      Author: Lovenix
+ */
+
+#ifndef INC_NETWORK_H_
+#define INC_NETWORK_H_
+
+#define TERM_PORT	"4015"				// term client port
+#define ROBOT_PORT		"4016"			// robot client port
+#define	FLEX_PORT		"4017"			// front flex port
+#define	JAVA_PORT		"4018"			// back java port
+#define	KER_UDP_PORT	"9999"			// kernel UDP port
+#define MOBILE_PORT		"4020"			// mobile client port
+#define PHOTO_PORT		"4024"			// picture transmission port
+
+//#define WATCH_PORT		11111			// watch client port	final port 11111 test 22222
+#define WATCH_PORT		"7777"			// watch client port	final port 11111 test 22222
+#define _FILE_OFFSET_BITS 64
+#define MAX_REC	50000
+#define MAXBUF 8192
+#define MAXEPOLLSIZE MAX_REC
+#define MAXLISTEN 20
+#define PORT 5555
+#define	ENC		"lovenix"
+#define JAVA_STR "update"
+#define	TEST	1111
+#define MAXRPL	64					// MAX packet length of robot
+#define MAXMPL	2048				// MAX packet length of mobile
+
+#define MAX_EQU	512
+#define ROBOT_HEART_TIME 	300
+#define MOBIL_HEART_TIME	300
+#define WATCH_HEART_TIME	200
+#define PHOTO_HEART_TIME	300
+
+#define ROBOT_DEAD_TIME 	10
+#define MOBIL_DEAD_TIME 	10
+#define WATCH_DEAD_TIME 	20
+#define PHOTO_DEAD_TIME 	10
+
+#define MHI	(MAX_REC<<1)+1			// max hash index
+#define NANOSECOND 50000000UL
+#define UNS 	90000000UL
+#define MWU	5						// max watch user
+#define SHI	8192
+
+typedef struct rn{				// node struct
+	char n_mac[17];				// node MAC address
+	unsigned char n_type;		// node type
+	unsigned int group;			// group number
+	unsigned int n_num;			// node number
+	unsigned char n_stat;		// node state
+	unsigned char n_resever;	// reserver bit
+	unsigned char n_drop;		// dropping flag
+}NINFO[MAX_EQU];				// node info
+
+struct alarm{
+	char name[16][128];
+	char name_utf8[16][128];
+};
+
+typedef struct ri{
+	int tfd;			// Robot TCP handle
+	int tflag;			// TCP	连接标志
+	int cflag;			// client close flag
+	int hiv;					// hash index value
+//	char rst[17];		// 机器人状态		0--离线  1--在线   2--3g在线
+	char id[17];		// 设备id
+	char alias[17];		// PUSH SERVER ALIAS
+	char ip[16];		// client IP
+	char mPhone[12];			// main phone
+//	NINFO rnInfo;
+	unsigned char lip[4];		// locale IP
+	unsigned char wc;
+	unsigned char uFlag;		// update flag
+	unsigned int uPort;
+	unsigned int cntime;			// TCP 	持续时间
+	unsigned char version;
+	struct alarm aInfo;
+}RINFO,*PRINFO;//[MAX_REC];
+
+struct tf{
+	int ffd;		// Tempt file (http server use)
+	char path[128];
+	int fctime;		// temp file create time
+	unsigned char wo;	// write over flag
+};
+
+typedef struct mi{
+	int mfd;			// mobile TCP handle
+	int tflag;			// TCP	client flag
+	int cflag;			// client close flag
+//	int wfd;			// socket id of bind watch
+	char id[17];
+	char ip[16];
+	char wid[17];
+	char user[17];
+	int hiv;		// hash index value
+	unsigned int uPort;
+	unsigned int version;
+	unsigned int w_state;	// watch state
+	unsigned char wc;		// write count
+	unsigned char aKey[8];		// app key
+	unsigned int cntime;		// TCP 	continue time
+	struct tf tmpFile;	// temp file struct
+	unsigned char master;
+}MINFO[MAXEPOLLSIZE];
+
+typedef struct{
+	int radius;
+	int LRTime;				// last alarm time
+	double base_lon;		// 基准经纬度
+	double base_lat;
+	double lon;				// 测量所得经纬度
+	double lat;
+	unsigned char on;		// on off
+	unsigned char cycle;	// fence cycle
+	unsigned char flag;		// 定位标志	1->已定位,0->未定位
+	double last_lon;
+	double last_lat;
+}LON_LAT,*P_LON_LAT;
+
+typedef struct wi{
+	int wfd;			// watch TCP handle
+	int tflag;			// TCP	client flag
+	int cflag;			// client close flag
+	int hiv;				// hash index value
+	char id[17];
+	char ip[16];
+	char alias[17];
+	char rid[17];
+	unsigned int cntime;	// TCP 	continue time
+	unsigned char type;		// watch type		1->children 2->oldman
+	LON_LAT sLLInfo;
+	unsigned char ef_flag;	// elect fence flag
+}WINFO[MAX_REC];
+
+typedef struct oi{
+	unsigned char version;		// robot version
+	char alias[17];
+}OT_INFO;			// other info
+
+
+typedef struct hi{
+	int rhiv;			// robot client socket handle index hash
+	int mcun;			// mobile connect user number
+	int mhiv[MUN];		// mobile client socket handle index hash
+//	int whiv;			// watch client socket handle index hash
+	int pValid;			// 是否有图片传送请求
+	int mfd;			// save mobile socket id
+	int wfd;			// watch socket handle
+}HIV[MHI];
+
+typedef struct whi{
+	int whiv;			// watch client socket handle index hash
+	int type;			// watch type 1->child 2->old
+	int mfd[MWU];
+}WHIV[MHI];
+
+struct cli_info{
+	int sockfd;
+};
+
+
+extern PRINFO rInfo;
+extern MINFO mInfo;
+extern WINFO wInfo;
+extern HIV hInfo;
+extern WHIV whInfo;
+extern OT_INFO *otInfo;
+
+extern void* RClientManage(void *arg);
+extern void* MClientManage(void *arg);
+extern void* WClientManage(void *arg);
+extern void* PClientManage(void *arg);
+
+
+extern void UpdateRClient(int rfd);
+extern void UpdateMClient(int mfd);
+extern void UpdateWClient(int wfd);
+extern void UpdatePClient(int pfd);
+
+extern int GetMfdIndex(int mfd,int nPos);
+extern int DelMfdIndex(int mfd,int nPos);
+extern int GetMfdNum(int nPos);
+
+extern void ResetRClient(int rfd);
+extern void ResetMClient(int mfd);
+extern void ResetWClient(int wfd);
+extern void ResetPClient(int pfd);
+
+extern void *UdpServer(void *arg);
+extern void *RobotServer(void *arg);
+extern void *MobServer(void *arg);
+extern void *PhotoServer(void *arg);
+extern int setnonblocking(int sockfd);
+extern int kdpfd;
+extern int mkdpfd;
+extern int pkdpfd;
+extern struct epoll_event ev;
+extern struct epoll_event evm;
+extern struct epoll_event evp;
+extern int wsfd,psfd,rsfd,msfd;
+
+#endif /* INC_NETWORK_H_ */

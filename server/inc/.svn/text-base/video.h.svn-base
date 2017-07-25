@@ -1,0 +1,24 @@
+#ifndef VIDEO_H_
+#define VIDEO_H_
+
+extern int VideoRecCheck(int mfd,unsigned char* rBuf,int rLen);
+extern void PhotoProcess(int pfd);
+extern int NameCheck(int mfd,unsigned char* buf,int len);
+typedef struct pic{
+	int mfd;				// 请求图片的APP id
+	int pfd;
+	int tflag;
+	int cflag;
+	char ip[16];
+	unsigned char dsf;			// Data segment flag
+	unsigned int count;
+	unsigned char *pBuf;
+	unsigned int index;
+	unsigned char wFlag;
+	unsigned int cntime;
+	unsigned int pSize;
+	unsigned int pName[16];
+}PINFO[MAX_REC];
+extern PINFO pInfo;
+//#define SOCK_PIC
+#endif /* VIDEO_H_ */

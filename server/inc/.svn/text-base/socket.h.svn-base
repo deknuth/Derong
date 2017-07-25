@@ -1,0 +1,45 @@
+#ifndef SOCKET_H_
+#define SOCKET_H_
+
+
+/*********** socket.h ***************/
+#define TERM_PORT	4015				// term client port
+#define ROBOT_PORT		4016			// robot client port
+#define	FLEX_PORT		4017			// front flex port
+#define	JAVA_PORT		4018			// back java port
+#define	KER_UDP_PORT	4019			// kernel UDP port
+#define MOBILE_PORT		4020			// mobile client port
+#define WATCH_PORT		11111			// watch client port
+#define _FILE_OFFSET_BITS 64
+#define MAX_REC	50000
+#define MAXBUF 8192
+#define MAXEPOLLSIZE MAX_REC
+#define MAXLISTEN 20
+#define PORT 5555
+#define	ENC		"lovenix"
+#define JAVA_STR "update"
+#define	TEST	1111
+#define MAXRPL	64					// MAX packet length of robot
+#define MAXMPL	128					// MAX packet length of mobile
+
+extern void *UdpServer(void *arg);
+extern void *RobotServer(void *arg);
+extern void *MobServer(void *arg);
+extern int kdpfd;
+extern int mkdpfd;
+extern struct epoll_event ev;
+extern struct epoll_event evm;
+
+
+typedef struct tu{
+	unsigned long aIp;		// 主动端IP
+	unsigned int aPort;		// 主动端port
+	unsigned char aBit;		//
+	unsigned long uIp;		// 被动端IP
+	unsigned int uPort;		// 被动端port
+	unsigned char uBit;		//
+}P2P;
+
+extern P2P* uInfo;
+#endif
+

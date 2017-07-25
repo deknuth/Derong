@@ -1,0 +1,68 @@
+#ifndef WATCH_H_
+#define WATCH_H_
+#define MUTI	5
+#define MWUN	5		// 最多绑定数量
+
+#define OW_HEAD	"@B#@"	// old man watch pack begin
+#define OW_END	"@E#@"
+
+#define EARTH_WGS84_A 6378137.0000				// WGS-84 Semi-major axis in meters   长轴半径
+#define EARTH_WGS84_B 6356752.3142				// WGS-84 Semi-minor axis in meters   短轴半径
+#define EARTH_WGS84_E2 0.00669437999013			// WGS-84 Eccentricity squared		 偏心率的平方
+#define EARTH_WGS84_MPM 1852.0
+#define EARTH_WGS84_FLATTENING 298.257223563	// WGS-84   Flattening 地球扁率
+#ifndef M_PI
+	#define M_PI 3.1415926535897932
+#endif
+#define FENCE_INTER	1800						// fence interval
+
+typedef struct g{
+	int uTime;		// UTC time
+	int date;		// date
+	int dir;		// direction
+	int terStat;	// terminal state
+	int power;		// Battery power
+	int stepCount;	// Counting steps
+	int tumFreq;	// Tumbling frequency
+	unsigned char flag;
+	unsigned char bsNum;		// base station number
+	unsigned char speed[2];		// speed
+	unsigned char lon[5];		// longitude
+	unsigned char lat[5];		// latitude
+	unsigned char high[2];		// high
+	char llat[11];
+	char llon[11];
+}GPS;
+
+typedef struct wti{
+	char head[3];
+	char id[11];
+	char type[10];
+	char len[5];
+	char context[48];
+	char mnc[6];
+	char lac[3][6];
+	char cellid[3][6];
+	char rssi[3][6];
+	unsigned char lbn;			//local base number
+	GPS sGi;
+}WINF;
+
+extern int wkdpfd;
+extern struct epoll_event evw;
+extern void *WatchServer(void *arg);
+extern void WatchProcess(int wfd);
+extern int ProtocolAnalysis(int wfd,char* src);
+extern int UpdateWid(void);
+extern int mWatchReg(int mfd,const unsigned char* buf,int len);
+extern int mBLinfo(int mfd,WINF* pWf,int stat);		// back local info to mobile
+extern int mSosSet(int mfd,unsigned char* buf,int len);
+extern int mSosCheck(int mfd,unsigned char* buf,int len);
+extern int mWatchLocal(int mfd);
+extern int oParaSet(int mfd,unsigned char* buf,int len);	// old watch para setting
+extern int eFenceSet(int mfd,unsigned char *buf,int len);	// elect fence setting
+extern int eFenceSwitch(int mfd,unsigned char *buf,int len);
+extern void *EFServer(void *arg);
+extern int oRssiSort(char *src,WINF* pWf);
+#endif
+

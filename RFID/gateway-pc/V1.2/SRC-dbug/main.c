@@ -5,7 +5,7 @@
 #define T2_ON	{ TCCR2B|=1<<CS22|1<<CS20; TIMSK2|=1<<TOIE2; TCNT2=0;}	// 128 divide  4.4ms
 #define T2_OFF	{ TCCR2B=0; TIMSK2&=~1<<TOIE2; }
 
-#define T1_ON	{ TCCR1B|=1<<CS12|1<<CS10; TIMSK1|=1<<TOIE1; TCNT1=0x4000;}
+#define T1_ON	{ TCCR1B|=1<<CS12|1<<CS10; TIMSK1|=1<<TOIE1; TCNT1=0x0000;}
 #define T1_OFF	{ TCCR1B=0; TIMSK1&=~1<<TOIE1;}
 
 #define T0_ON	{ TCCR0B|=1<<CS02; TIMSK0|=1<<TOIE0;}
@@ -74,22 +74,26 @@ volatile unsigned char U0Ready = 0;
 ISR(TIMER2_OVF_vect)			// UART0 timeout
 {
     T2_OFF;
+	U0Send(uBuf,U0Count);
 	if(U0Count == 7)
 	{
 		memcpy(tBuf,uBuf,7);
 		U0Ready = 1;
 	}
+	else
+		memset(uBuf,0x00,U0Count);
 	U0Count = 0;
 }
 
 ISR(USART_RX_vect)
 {
+	T2_ON;
     unsigned char tmp;
     tmp = UDR0;
     uBuf[U0Count++] = tmp;
-	T2_ON;
     if(U0Count >= 16)
         U0Count = 0;
+	
 }
 
 volatile unsigned char total = 15;
@@ -110,7 +114,7 @@ ISR(TIMER0_OVF_vect)		// 8.85ms
     }
 }
 
-ISR(TIMER1_OVF_vect)		// 9s
+ISR(TIMER1_OVF_vect)		// 18s
 {
 	T1_OFF;
 	T0_OFF;
@@ -139,7 +143,7 @@ int main(void)
     A7139_SetPowerLevel(8);		// 功率设置函数，参数范围0-8，0最小功率，8功率最大
     A7139_SetPackLen(7);
 	A7139_ReadCID(cid);
-	U0Send(cid,4);
+//	U0Send(cid,4);
 	sei();
 
     while(1)
@@ -166,7 +170,6 @@ int main(void)
 		}
 		if(U0Ready)
 		{
-
 			if(tBuf[0]==0xFE && tBuf[6]==0xFF && tBuf[1]==0x07)
 			{
 				T1_ON;

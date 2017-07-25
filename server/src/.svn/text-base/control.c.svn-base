@@ -1,0 +1,533 @@
+#include "../inc/main.h"
+
+// static int TQRegBack(int state,unsigned char* pack,unsigned char* sn);
+int MacAdd(unsigned char *mac,int len)
+{
+	int i = 0;
+	int count = 0;
+	for(i=0; i<len; i++)
+	{
+		count += *mac;
+		mac++;
+	}
+	return	count;
+}
+
+int AirCT(int rfd,unsigned char* rBuf)			//	空调控制
+{
+	return 1;
+}
+
+int EquCT(int mfd,unsigned char* rBuf,int rLen)			//	 Equipment control
+{
+	int rfd;
+	struct timeval ntime;
+	rfd = GetRFD(mfd);
+	if(rfd != 0)
+	{
+		if(!_write(rfd,rBuf,rLen))
+		{
+			gettimeofday(&ntime, NULL);
+			if(rInfo[rfd].tflag != 0)
+				rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_HEART_TIME);		// Reduce the timeout
+			else
+				rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_DEAD_TIME);		// Reduce the timeout
+			rInfo[rfd].cflag = -1;
+			return 0x300;
+		}
+		else
+			return 0x301;
+	}
+	else
+		return 0x300;
+}	
+
+int SwitchInfo(int rfd, unsigned char* rBuf, int type,int len)
+{
+	char mac[17] = { 0 };
+	char sql[1024] = { 0 };
+	char date[9] = { 0 };
+	char name[72] = { 0 };
+	char temp[36] = { 0 };
+	char recTime[15] = { 0 };
+	char oprTime[13] = { 0 };
+	char *inbuf = temp;
+	char *outbuf = name;
+	unsigned char pack[18] = { 0 };
+	unsigned char sid[8] = { 0 };
+	unsigned int child = 0;				// 子级设备
+	unsigned int state = 0;
+	unsigned char buf[6] = { 0 };
+
+	iconv_t cd;
+	size_t sLen = 36;
+	size_t dLen = 72;
+
+	memcpy(sid,&rBuf[7],8);
+	HexToString(mac,sid,8);
+	child = (rBuf[15] << 8) + rBuf[16];
+
+	if(type == 2)		// switch state upload
+	{
+#if 1
+		state = (rBuf[17] << 8) + rBuf[18];
+		memcpy(buf,&rBuf[19],6);
+		gtime(recTime);
+		HexToString(oprTime,buf,6);
+/*
+		sprintf(sql,"INSERT INTO T_OPER_REC (O_USER,O_SID,O_RID,O_TYPE,O_TIME,O_REC_TIME,O_STATE,O_CHILD_ID,O_ID)\
+				 values ('%s','%s','%s','%d','%s','%s','%d','%d',SEQ_OPER_REC.nextVal)",
+				"123",mac,rInfo[rfd].id,3,oprTime,recTime,state,child);
+*/
+		snprintf(sql,sizeof(sql),"update t_switch_info set s_child_stat='%d' where s_node_id='%s' and s_node_rid='%s' and s_child_id='%d'",state,mac,rInfo[rfd].id,child);
+		OciInsert(sql);
+		mBackStat(rInfo[rfd].id,rBuf,len);
+//		mBackJson(rInfo[rfd].id,J_SW,3);
+#endif
+	}
+	else if(type == 1)		// switch REG
+	{
+		state = (rBuf[17] << 8) + rBuf[18];
+		memcpy(temp,&rBuf[19],36);
+
+		if ((iconv_t)-1 == (cd=iconv_open("GBK", "UTF-8")))
+		{
+			pack[6] = 0xA1;
+			lprintf(lfd, FATAL, "Iconv: Alarm code library open failed!");
+		}
+		else
+		{
+			if(iconv(cd, &inbuf, &sLen, &outbuf, &dLen) == -1)
+			{
+				pack[6] = 0xA1;
+				lprintf(lfd, FATAL, "Iconv: Alarm code convert failed!");
+			}
+			else
+			{
+				gdate(date);
+				snprintf(sql,sizeof(sql),
+						"merge into t_switch_info t1\
+						using  (SELECT '%s' s_node_id,'%d' s_child_id,'%s' s_child_name,'%s' s_mod_date,'%s' s_node_rid from dual) t2\
+						on (t1.s_node_id = t2.s_node_id AND t1.s_child_id = t2.s_child_id)\
+						when matched then\
+							update SET t1.s_child_name=t2.s_child_name,t1.s_mod_date=t2.s_mod_date,t1.s_node_rid=t2.s_node_rid\
+						when not matched then\
+							insert  (s_node_id,s_child_name,s_mod_date,s_node_rid,s_child_stat,s_child_id,id) values ('%s','%s','%s', '%s', %d, %d,seq_switch_info.nextVal)",
+							mac,child,name,date,rInfo[rfd].id,mac,name,date,rInfo[rfd].id,state,child);
+				pack[6] = OciInsert(sql)?0xA0:0xA1;
+				mBackStat(rInfo[rfd].id,rBuf,len);
+				//mBackJson(rInfo[rfd].id,J_SW,3);
+			}
+			iconv_close(cd);
+		}
+	}
+	else		// switch delete
+	{
+		if(2040 == MacAdd(sid,8))
+			snprintf(sql,sizeof(sql),"DELETE FROM t_switch_info WHERE S_NODE_RID = '%s'",rInfo[rfd].id);
+		else
+		{
+			if(child != 0xFFFF)
+				snprintf(sql,sizeof(sql),"DELETE FROM t_switch_info WHERE S_NODE_ID = '%s' and S_CHILD_ID = %d",mac,child);
+			else
+				snprintf(sql,sizeof(sql),"DELETE FROM t_switch_info WHERE S_NODE_ID = '%s'",mac);
+		}
+		pack[6] = OciInsert(sql)?0xA0:0xA3;
+		mBackStat(rInfo[rfd].id,rBuf,len);
+//		mBackJson(rInfo[rfd].id,J_SW,3);
+	}
+
+//	s_printf("Switch SQL: %s\n", sql);
+
+	memcpy(&pack[7],sid,8);
+	pack[5] = 0x0A;
+	pack[15] = rBuf[15];
+	pack[16] = rBuf[16];
+	CreatHead(pack,18,0);
+
+	if (_write(rfd, pack, 18))
+		return 1;
+	else
+	{
+		lprintf(lfd, FATAL, "Robot: Switch info setting failed!");
+		return 0;
+	}
+}
+
+int IrManage(int rfd,int stat,unsigned char *buf)
+{
+	unsigned char pack[12] = { 0 };
+	unsigned int eType = 0;
+	unsigned char cType = 0;
+	unsigned char group = 0;
+	char sql[1024] = { 0 };
+	char name[72] = {0};
+	char temp[36] = {0};
+	iconv_t cd;
+	size_t sLen = 36;
+	size_t dLen = 72;
+	char *inbuf = temp;
+	char *outbuf = name;
+
+	eType = (buf[7]<<8) + buf[8];
+	cType = buf[9];
+	group = buf[10];
+	memcpy(temp,&buf[11],36);
+
+	if(0xB00 == stat)
+	{
+		if ((iconv_t)-1 == (cd=iconv_open("GBK", "UTF-8")))
+		{
+			pack[6] = 0x10;
+			lprintf(lfd, FATAL, "Iconv: Alarm code library open failed!");
+		}
+		else
+		{
+			if(iconv(cd, &inbuf, &sLen, &outbuf, &dLen) == -1)
+			{
+				pack[6] = 0x10;
+				lprintf(lfd, FATAL, "Iconv: Alarm code convert failed!");
+			}
+			else
+			{
+				snprintf(sql,sizeof(sql),"merge into t_ir_info t1\
+						using  (SELECT '%s' IR_R_ID,'%d' IR_GROUP,'%d' IR_EQ_TYPE,'%s' IR_NAME,'%d' IR_CT_TYPE from dual) t2\
+							on (t1.IR_R_ID = t2.IR_R_ID AND t1.IR_EQ_TYPE = t2.IR_EQ_TYPE AND t1.IR_GROUP = t2.IR_GROUP)\
+						when matched then\
+							update SET t1.IR_NAME=t2.IR_NAME\
+						when not matched then\
+							insert (IR_NAME,IR_R_ID,IR_GROUP,IR_EQ_TYPE,IR_CT_TYPE,id) values ('%s','%s','%d', '%d', '%d',seq_ir_info.nextVal)",
+							rInfo[rfd].id,group,eType,name,cType,name,rInfo[rfd].id,group,eType,cType);
+				pack[6] = OciInsert(sql)?0x11:0x10;
+				mBackJson(rInfo[rfd].id,J_IR,3);
+			}
+			iconv_close(cd);
+		}
+	}
+	else if(0xB01 == stat)
+	{
+		if(eType == 0xFFFF)
+			snprintf(sql,sizeof(sql),"DELETE FROM t_ir_info WHERE ir_r_id = '%s'",rInfo[rfd].id);
+		else if(cType == 0xFF)
+			snprintf(sql,sizeof(sql),"DELETE FROM t_ir_info WHERE ir_r_id = '%s' and IR_EQ_TYPE = '%d'",rInfo[rfd].id,eType);
+		else
+			snprintf(sql,sizeof(sql),"DELETE FROM t_ir_info WHERE ir_r_id = '%s' and IR_EQ_TYPE = '%d' and IR_GROUP = '%d'",rInfo[rfd].id,eType,group);
+		pack[6] = OciInsert(sql)?0x21:0x20;
+		mBackJson(rInfo[rfd].id,J_IR,3);
+	}
+
+	s_printf("IR SQL: %s\n", sql);
+
+	pack[5] = 0x0B;
+	pack[7] = buf[7];
+	pack[8] = buf[8];
+	pack[9] = cType;
+	pack[10] = group;
+	CreatHead(pack,12,0);
+
+	if (_write(rfd, pack, 12))
+	{
+		lprintf(lfd, INFO, "Robot: IR info setting success!");
+		return 1;
+	}
+	else
+		return 0;
+}
+
+
+#if 0
+int AudioCT(int rfd,unsigned char* rBuf)			//	音响
+{
+	return(1);
+}
+
+int SecurCT(int rfd,unsigned char* rBuf)		//	安防
+{
+	return(1);
+}
+
+int CurtCT(int rfd,unsigned char* rBuf)			//	窗帘
+{
+	return(1);
+}
+
+int TqCT(int mfd,unsigned char* rBuf)
+{
+	int nPos;
+	int rfd,i,j;
+	int ctWord;
+	unsigned char ctValue;
+	int nCode;						// code in node
+	unsigned char sn[8] = {0};
+	unsigned char pack[16] = {0};
+
+	struct timeval ntime;
+	nPos = mInfo[mfd].hiv;
+	rfd = hInfo[nPos].rhiv;
+
+	ctWord = rBuf[3];
+	ctWord <<= 8;
+	ctWord += rBuf[4];
+
+	nCode = rBuf[8];
+	nCode <<= 8;
+	nCode += rBuf[9];
+
+	ctValue = rBuf[10];
+
+	switch(ctWord)
+	{
+		case 0x02:			// night
+			ctWord = 0x0A;
+			break;
+		case 0x0E:
+			ctWord = 0x0C;	// socket
+			break;
+		case 0x0F:			// infrared
+			ctWord = 0x05;
+			break;
+		default:
+			break;
+	}
+
+	pack[0] = TQ_PACK_H;
+	pack[1] = TQ_PACK_L;
+	pack[2] = ctWord;
+	StringToHex(sn,mInfo[mfd].id);
+	for(i=0,j=3;i<8;i++)
+		pack[j++] = sn[i];
+	pack[j++] = rBuf[8];		// in node code
+	pack[j++] = rBuf[9];
+	pack[j++] = ctValue;
+	pack[j++] = 0;
+	pack[j++] = TQ_PACK_T;
+
+
+	if(rfd != 0)
+	{
+		if(!_write(rfd,pack,16))
+		{
+			gettimeofday(&ntime, NULL);
+			if(rInfo[rfd].tflag != 0)
+				rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_HEART_TIME);		// Reduce the timeout
+			else
+				rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_DEAD_TIME);		// Reduce the timeout
+			rInfo[rfd].cflag = -1;
+			return 0;
+		}
+		else
+			return 1;
+	}
+	else
+		return 0;
+	return 1;
+}
+
+int TqAlive(int rfd,unsigned char* rBuf)		// TQ alive packet
+{
+//	printf("Alive:\n");
+	// control word  0x02 ---gateway    0x20 ---server
+	unsigned char pack[16] = {0};
+	memcpy(pack,rBuf,16);
+	pack[11] = 0x20;
+	if(!_write(rfd,pack,16))					// alive back packet
+	{
+		gettimeofday(&ntime, NULL);
+		if(rInfo[rfd].tflag != 0)
+			rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_HEART_TIME);		// Reduce the timeout
+		else
+			rInfo[rfd].cntime = (ntime.tv_sec - ROBOT_DEAD_TIME);		// Reduce the timeout
+		rInfo[rfd].cflag = -1;
+		return 0;
+	}
+	return 1;
+}
+
+int TqStat(int rfd,unsigned char* rBuf)						// TQ state function
+{
+	int i,j;
+	unsigned char sn[17] = {0};
+	unsigned char temp[8] = {0};
+	unsigned char pack[16] = {0};
+	int mNum;
+	int nPos;
+	int node;
+
+//	nPos = rInfo[rfd].hiv;
+//	hInfo[nPos].mhiv;
+
+	printf("\nRobot back state:\n");
+	for(i=0;i<16;i++)
+		printf("%x\t",rBuf[i]);
+	printf("\n\n");
+
+	for(j=0,i=3; i<11; i++,j++)
+		temp[j] = rBuf[i];
+	HexToString(sn,temp,8);
+	node = rBuf[12];
+	rInfo[rfd].rnInfo[node].n_type = rBuf[2];
+	strcpy(rInfo[rfd].rnInfo[node].n_mac,sn);
+	rInfo[rfd].rnInfo[node].group = rBuf[11];
+	rInfo[rfd].rnInfo[node].n_num = node;
+	rInfo[rfd].rnInfo[node].n_stat = rBuf[14];	// state
+
+	pack[0] = 0xfd;
+	pack[1] = 0x00;
+	pack[2] = 0x01;
+	pack[3] = 0x03;
+	pack[4] = 0x01;
+	pack[5] = rInfo[rfd].rnInfo[node].n_type;
+	pack[6] = rInfo[rfd].rnInfo[node].group;
+	pack[7] = node;
+	pack[8] = rInfo[rfd].rnInfo[node].n_stat;
+	//gtime(date);
+	//strncpy(&pack[9],date,14);
+	pack[15] = 0xff;
+
+//	printf("rInfo[rfd].rnInfo[node].n_stat %d\n",rInfo[rfd].rnInfo[node].n_stat);
+	switch((rInfo[rfd].rnInfo[node].n_stat))
+	{
+		case 0xfd:				// up equipment info
+			DataProcess(&rInfo[rfd],0,node);
+			break;
+		case 0xff:
+			DataProcess(&rInfo[rfd],0,node);
+			break;
+		case 0x10:				// control back state
+			nPos = GetHashTablePos(sn,RidHash,MHI);
+			mNum = GetMfdNum(nPos);
+			for(i=0;i<mNum;i++)								// back state to user that all client
+				_write(hInfo[nPos].mhiv[i],pack,16);
+			DataProcess(&rInfo[rfd],1,node);
+			break;
+		case 0x20:
+			nPos = GetHashTablePos(sn,RidHash,MHI);
+			mNum = GetMfdNum(nPos);
+			for(i=0;i<mNum;i++)								// back state to user that all client
+				_write(hInfo[nPos].mhiv[i],pack,16);
+			DataProcess(&rInfo[rfd],1,node);
+			break;
+		case 0x01:			// up equipment self state
+			DataProcess(&rInfo[rfd],2,node);
+			break;
+		case 0x02:
+			DataProcess(&rInfo[rfd],2,node);
+			break;
+		default:
+			break;
+	}
+
+//	printf("In state: %x \n",state);
+	return 1;
+}
+
+int TqReg(int rfd,unsigned char* rBuf)						// TQ gateway register function
+{
+	//control word 0xee register success  0xdd register failed
+	int i,j,rb,index;
+	unsigned char sn[17] = {0};
+	unsigned char temp[8] = {0};
+	unsigned char pack[16] = {0};
+	char sql[256] = {0};
+
+	for(j=0,i=3; i<11; i++,j++)
+		temp[j] = rBuf[i];
+	HexToString(sn,temp,8);
+	index = GetHashTablePos(sn,RidHash,MHI);
+
+	if(index == 0)		// Not register
+	{
+		InsertHash(sn, RidHash,MHI);			// insert hash
+		sprintf(sql,"insert into t_robot_info (n_mac,n_prefix,n_id) values ('%s',Floor((select count(n_mac) from t_node_info)/40),seq_robot.nextVal)",sn);		// insert SN to database
+		sem_wait(&sem_or);
+		if(!OciInsert(sql))
+		{
+			rb = 0xDD;		// database problem
+			lprintf(lfd, FATAL, "GateWay register insert database abnormal!");
+		}
+		else
+		{
+			rb = 0xEE;		// success
+			index = InsertHash(sn,RidHash,MHI);
+			rInfo[rfd].hiv = index; 				// insert hash table
+			hInfo[index].rhiv = rfd;				// storage rfd hash
+			memcpy(rInfo[rfd].id,sn,16);
+		//		printf("rInfo[rfd].id: %s\n",rInfo[rfd].id);
+			rInfo[rfd].tflag = rfd;					// set socket online flag
+			lprintf(lfd, INFO, "Gateway [%s] register success!",sn);
+		}
+		sem_post(&sem_or);
+	}
+	else								// already register
+	{
+//		printf("index: %d\n",index);
+		if(rInfo[hInfo[index].rhiv].tfd == 0)			// first login
+			lprintf(lfd, INFO, "Gateway [%s] link up success!",sn);
+		else											// login again
+		{
+			rInfo[hInfo[index].rhiv].cflag = -2;		// close last socket
+			gettimeofday(&ntime, NULL);
+			rInfo[hInfo[index].rhiv].cntime = (ntime.tv_sec - ROBOT_HEART_TIME);
+			lprintf(lfd, INFO, "Gateway [%s] update success!",sn);
+		}
+		rb = 0xEE;							// success
+		rInfo[rfd].tflag = rfd;				// set new client info or set socket online flag
+		hInfo[index].rhiv = rfd;			// change  hash index value or storage rfd hash
+		rInfo[rfd].hiv = index;
+		memcpy(rInfo[rfd].id,sn,16);
+	}
+
+//	TQRegBack(rb,pack,temp);
+	memcpy(pack,rBuf,16);
+	pack[11] = rb;
+	_write(rfd,pack,16);				// register back
+/*
+	pack[0] = 0xfe;
+	pack[1] = 0x0f;
+	pack[2] = 0x0b;
+	pack[3] = 0xf1;
+	pack[4] = 0xd1;
+	pack[5] = 0xd5;
+	pack[6] = 0x02;
+	pack[7] = 0x00;
+	pack[8] = 0x4b;
+	pack[9] = 0x12;
+	pack[10] = 0x00;
+	pack[11] = 0x20;
+	pack[12] = 0x00;
+	pack[13] = 0x00;
+	pack[14] = 0x00;
+	pack[15] = 0xef;
+	_write(rfd,pack,16);				// test back
+*/
+/*
+	if(rb == 0xEE)
+	{
+		memset(sql,0x00,256);
+		sprintf(sql,"delete from t_equ_online_info where e_mac='%s'",sn);		// insert SN to database
+		sem_wait(&sem_or);
+		OciInsert(sql);
+		sem_post(&sem_or);
+		return 1;
+	}
+	else
+		return 0;
+}
+
+int TQRegBack(int state,unsigned char* pack,unsigned char* sn)
+{
+	int i,j;
+	pack[0] = TQ_PACK_H;
+	pack[1] = TQ_PACK_L;
+	pack[2] = 0x0B;
+	for(i=0,j=3; j<11;i++, j++)
+		pack[j] = sn[i];
+	pack[j++] = state;
+	pack[j++] = 0;
+	pack[j++] = 0;
+	pack[j++] = 0;
+	pack[j] = TQ_PACK_T;
+	return 1;
+}
+*/
+#endif
