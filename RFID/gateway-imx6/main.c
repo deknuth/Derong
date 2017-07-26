@@ -3,7 +3,7 @@
 #define T2_ON	{ TCCR2B|=1<<CS22|1<<CS20; TIMSK2|=1<<TOIE2; TCNT2=0;}	// 128 divide  4.4ms
 #define T2_OFF	{ TCCR2B=0; TIMSK2&=~1<<TOIE2; }
 
-#define T1_ON	{ TCCR1B|=1<<CS12|1<<CS10; TIMSK1|=1<<TOIE1; TCNT1=0x4000;}
+#define T1_ON	{ TCCR1B|=1<<CS12|1<<CS10; TIMSK1|=1<<TOIE1; TCNT1=0x1;}
 #define T1_OFF	{ TCCR1B=0; TIMSK1&=~1<<TOIE1;}
 
 #define T0_ON	{ TCCR0B|=1<<CS02; TIMSK0|=1<<TOIE0;}
@@ -15,7 +15,7 @@ void PortInit(void)
     PORTB= 0B00001000;
     PINB = 0x00;
 
-    DDRD = 0B11100000;		// PD6->GIO2,PD7->GIO1
+    DDRD = 0B00100000;		// PD6->GIO2,PD7->GIO1
     PORTD= 0B00000000;
     PIND = 0x00;
 
@@ -108,13 +108,28 @@ ISR(TIMER0_OVF_vect)		// 8.85ms
     }
 }
 
-ISR(TIMER1_OVF_vect)		// 9s
+volatile unsigned int t1Count = 0;
+unsigned char timeout = 0;
+
+void StopScan(void)
 {
 	T1_OFF;
 	T0_OFF;
 	T0Flag = sFlag = 0;
 	LED_OFF;
+	t1Count = 0;
 }
+
+ISR(TIMER1_OVF_vect)		// 9s
+{
+	if(t1Count++ > 430)			// 3600S  scan timeout
+	{
+		StopScan();
+		timeout = 1;
+	}
+}
+
+unsigned char P3[7] = { 0xFC,0x07,0x00,0x00,0x00,0x00,0xFF };
 
 int main(void)
 {
@@ -122,6 +137,8 @@ int main(void)
     unsigned char tmp = 0;
 	unsigned char rLen = 0;
 	unsigned char cid[4] = {0};
+	unsigned int nid = 0;
+	unsigned int gid = 0;
     cli();
     PortInit();
     UartInit();
@@ -142,7 +159,7 @@ int main(void)
 
     while(1)
     {
-		while(sFlag)
+		if(sFlag)
 		{
 			while(T0Flag)
 			{
@@ -153,8 +170,16 @@ int main(void)
 					{
 						if((rLen=RecvData(rBuf))>0)
 						{
-							U0Send(rBuf,rLen);
-							memset(rBuf,0x00,rLen);
+							if(rBuf[0]==0xFC && rBuf[6]==0xFF)
+							{
+								gid = (rBuf[4]<<8)+rBuf[5];
+								if(gid == nid)			// card id == get id
+								{
+									StopScan();
+									U0Send(rBuf,rLen);
+									memset(rBuf,0x00,rLen);
+								}
+							}
 						}
 					}
 				}
@@ -162,14 +187,23 @@ int main(void)
 			}
 			A7139Send(tBuf,7);
 		}
+		else if(timeout == 1)		// scan timeout
+		{
+			U0Send(P3,7);
+			timeout = 0;
+		}
+			
 		if(U0Ready)
 		{
-
+			nid = (tBuf[4]<<8)+tBuf[5];
 			if(tBuf[0]==0xFE && tBuf[6]==0xFF && tBuf[1]==0x07)
 			{
-				T1_ON;
-				T0_ON;
-				sFlag = 1;
+				if(nid != 65535)	// not allow broadcast
+				{
+					T1_ON;
+					T0_ON;
+					sFlag = 1;
+				}
 			}
 			U0Ready = 0;
 		}

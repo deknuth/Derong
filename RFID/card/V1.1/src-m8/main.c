@@ -132,21 +132,29 @@ int main(void)
 				{
 					DIS_EXTI0;
 					_delay_ms(60+nId);
+					tBuf[2] = rBuf[2];
+					tBuf[3] = rBuf[3];
 					SendData(tBuf,7);
-					for(i=0;i<27;i++)
+					if(rBuf[2] == 0)
 					{
-						if(i%2)
+						for(i=0;i<27;i++)
 						{
-							LED_ON;
-							_delay_ms(30);
+							if(i%2)
+							{
+								LED_ON;
+								_delay_ms(30);
+							}
+							else
+							{
+								LED_OFF;
+								_delay_ms(1300);
+							}
 						}
-						else
-						{
-							LED_OFF;
-							_delay_ms(1300);
-						}
+						_delay_ms(3000);
+						LED_OFF;
 					}
-					LED_OFF;
+					else
+						_delay_ms(2000);
 					ENA_EXTI0;
 				}
 
@@ -155,7 +163,9 @@ int main(void)
 					DIS_EXTI0;
 					_delay_ms(60+nId);
 					SendData(tBuf,7);
-					_delay_ms(5000);
+					_delay_ms(3000);
+					_delay_ms(9000);
+					_delay_ms(9000);
 					ENA_EXTI0;
 				}
             }

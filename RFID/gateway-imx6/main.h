@@ -21,17 +21,17 @@
 #define clrbit(x,y) x &= ~(1<<y)
 
 
-#define SPI_SCS_H	PORTC|=1<<2
-#define	SPI_SCS_L	PORTC&=~(1<<2)
+#define SPI_SCS_H	PORTB|=0X04
+#define	SPI_SCS_L	PORTB&=~0X04
 
-#define	SPI_SCK_H	PORTC|=2
-#define	SPI_SCK_L	PORTC&=~2
+#define	SPI_SCK_H	PORTB|=0x02
+#define	SPI_SCK_L	PORTB&=~0x02
 
-#define	SPI_DATA_OUT	DDRB|=1
-#define	SPI_DATA_IN   	DDRB&=~1
+#define	SPI_DATA_OUT	DDRB|=0x01
+#define	SPI_DATA_IN   	DDRB&=~0x01
 #define	SPI_DATA_H	PORTB|=1
 #define	SPI_DATA_L	PORTB&=~1
-#define	SPI_DATA_HL	(PINB&0x4)
+#define	SPI_DATA_HL	(PINB&0x01)
 
 #define	LED_ON		PORTD|=(1<<5)
 #define	LED_OFF		PORTD&=~(1<<5)

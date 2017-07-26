@@ -73,7 +73,7 @@ ISR(SIG_OVERFLOW1)		// 9s
 	ENA_EXTI0;
 }
 */
-unsigned int nId = 0x08;
+unsigned int nId = 0x07;
 int main(void)
 {
     unsigned char tBuf[7] = {0xFC,0x07,0x00,0x00,0x00,0x07,0xFF};
@@ -114,21 +114,29 @@ int main(void)
 				{
 					DIS_EXTI0;
 					_delay_ms(60+nId);
+					tBuf[2] = rBuf[2];
+					tBuf[3] = rBuf[3];
 					SendData(tBuf,7);
-					for(i=0;i<27;i++)
+					if(rBuf[2] == 0x00)
 					{
-						if(i%2)
+						for(i=0;i<27;i++)
 						{
-							LED_ON;
-							_delay_ms(30);
+							if(i%2)
+							{
+								LED_ON;
+								_delay_ms(30);
+							}
+							else
+							{
+								LED_OFF;
+								_delay_ms(1300);
+							}
 						}
-						else
-						{
-							LED_OFF;
-							_delay_ms(1300);
-						}
+						LED_OFF;
+						_delay_ms(8000);
 					}
-					LED_OFF;
+					else
+						_delay_ms(2000);
 					ENA_EXTI0;
 				}
 
@@ -137,6 +145,8 @@ int main(void)
 					DIS_EXTI0;
 					_delay_ms(60+nId);
 					SendData(tBuf,7);
+					_delay_ms(9000);
+					_delay_ms(9000);
 					_delay_ms(5000);
 					ENA_EXTI0;
 				}
