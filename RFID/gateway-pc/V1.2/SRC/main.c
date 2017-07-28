@@ -173,8 +173,8 @@ int main(void)
 								{
 									U0Send(rBuf,rLen);
 									memset(rBuf,0x00,rLen);
-									if(bcf)
-										StopScan();
+						//			if(bcf)
+						//				StopScan();
 								}
 							}
 						}
