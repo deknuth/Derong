@@ -20,7 +20,7 @@ void PortInit(void)
     PIND = 0x00;
 
     DDRC = 0B00000111;			
-    PORTC= 0B00000000;
+    PORTC= 0B00000010; 		// PC1->ARM_RST
     PINC = 0x00;
 }
 
