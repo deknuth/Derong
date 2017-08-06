@@ -1659,7 +1659,7 @@ void PortInit(void)
     DDRC = 0B00000111;			
  726:	87 e0       	ldi	r24, 0x07	; 7
  728:	87 b9       	out	0x07, r24	; 7
-    PORTC= 0B00000010; 		// PC1->ARM_RST
+    PORTC= 0B00000010; 		// PC1->ARM_RST  PC0_EN
  72a:	82 e0       	ldi	r24, 0x02	; 2
  72c:	88 b9       	out	0x08, r24	; 8
     PINC = 0x00;
