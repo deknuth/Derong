@@ -68,7 +68,7 @@ int parseJson(char * pMsg)
     if(NULL == pSub)
         return 0;		
     else
-    		strncat(msg,pSub->valuestring,strlen(pSub->valuestring));
+    	strncat(msg,pSub->valuestring,strlen(pSub->valuestring));
     
     pSub = cJSON_GetObjectItem(pJson, "nid");
     if(NULL == pSub)

@@ -137,7 +137,6 @@ ISR(USART_RXC_vect)
         U0Count = 0;
 }
 
-
 void Send595(unsigned long data)
 {
     int i;
