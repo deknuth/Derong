@@ -212,21 +212,29 @@ int main(void)
 	_delay_ms(150);
 	
 	encode = (PINA>>7)+((PINA&0x40)>>5)+((PINA&0x20)>>3)+((PINA&0x10)>>1);
-	
-#ifdef TEST
-	unsigned char i;
-	while(1)
+	FEED_DOG;
+	if(encode == 0x0F)
 	{
-		for(i=0;i<16;i++)
+		unsigned char i;
+		while(1)
 		{
-			Send595(bit[i]);
-			BEEP_100MS;
-			Send595(0);
-			_delay_ms(100);
+			for(i=0;i<16;i++)
+			{
+				Send595(bit[i]);
+				BEEP_100MS;
+				Send595(0);
+				_delay_ms(200);
+				FEED_DOG;
+			}
+			_delay_ms(600);
 			FEED_DOG;
+			_delay_ms(600);
+			FEED_DOG;
+			_delay_ms(600);
+			FEED_DOG;
+			
 		}
 	}
-#endif
     while(1)
     {	
 		FEED_DOG;
