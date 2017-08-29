@@ -160,7 +160,7 @@ void* HttpServer(void *arg)
             lprintf(lfd, INFO, "Robot: Http server accept error!");
             continue;
         }
-//        printf("received a connection from %s\n", inet_ntoa(remote_addr.sin_addr));
+//        printf("received a connection from: %s\n", inet_ntoa(remote_addr.sin_addr));
         if((rLen = recv(client_fd, buf, 1024, 0)) == -1)
             close(client_fd);
         else
@@ -168,14 +168,15 @@ void* HttpServer(void *arg)
 //        	printf("%s\n",buf);
             memcpy(sn,&buf[9],16);
             index = GetHashTablePos(sn,RidHash,MHI);
-//            printf("sn: %s\n",sn);
-//            printf("index : %d\n",index);
+            printf("sn: %s\n",sn);
+            printf("index : %d\n",index);
 //            printf("rhiv : %d\n",hInfo[index].rhiv);
             if(hInfo[index].rhiv > 0)           // 在线
             {
                 memcpy(nid,&buf[1],8);
- //               printf("nid: %s\n",nid);
+                printf("nid: %s\n",nid);
                 StringToHex(hex,nid);
+                word[2] = buf[0];
                 memcpy(&word[3],hex,4);
                 back[0] = '1';
                 _write(hInfo[index].rhiv,word,8);

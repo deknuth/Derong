@@ -8,11 +8,11 @@ void RobotProcess(int rfd) 	// robot logic processing
     unsigned char pack[MAXRPL] = { 0 };
     while ((rLen = read(rfd, rBuf, 1024)) > 0)
     {
-    	/*	
+#if 1
         for(j=0;j<rLen;j++)
             printf("%x\n",rBuf[j]);
         printf("\n");
-        */
+#endif
         pLen = i = 0;
         while (1)
         {

@@ -17,6 +17,7 @@ int RobotInit(int rfd,unsigned char* rBuf)
     memcpy(plainBlock,&rBuf[3],8);
     HexToString(sn,plainBlock,8);
 
+	printf("lsn: %s\n",sn);
 	index = GetHashTablePos(sn,RidHash,MHI);
 	if(index == 0)
 	{
