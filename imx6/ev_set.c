@@ -123,7 +123,7 @@ int get_path(void)
 					}
 					else if((usb_info->vid==2303) && (usb_info->pid==9))	// RFID
 						snprintf(dev_path[0],20,"%s",path);
-					else if(usb_info->vid==1155 && usb_info->pid==22639)	// scan
+					else if(usb_info->vid==1155 && usb_info->pid==17)	// scan
 						snprintf(dev_path[1],20,"%s",path);
 					printf("vid: %lu\t,pid: %lu\n",usb_info->vid,usb_info->pid);
 					memset(path,0x00,24);
