@@ -88,6 +88,35 @@ const char *bus_str(int bus)
     }
 }
 
+int get_number(void)
+{
+	char path[24] = {"/dev/input"};
+	DIR* pDir = NULL;
+	int number = 0;
+	struct dirent *pFile = NULL;
+
+	if ((pDir=opendir(path)) == NULL)
+	{
+		printf("Update: Open update directory error!");
+		return 0;
+	}
+	else
+	{	
+		while((pFile = readdir(pDir)) != NULL)
+		{
+			if(pFile->d_type == 2)		//device
+			{
+				if(strstr(pFile->d_name,"event")!=NULL)
+				{
+					number++;
+				}
+			}
+		}
+	}
+	closedir(pDir);
+	return number;
+}
+
 int get_path(void)
 {
 	int event = 0;
@@ -96,7 +125,9 @@ int get_path(void)
 	DIR* pDir = NULL;
 	USBINFO* usb_info = (USBINFO *)malloc(sizeof(USBINFO));
 	struct dirent *pFile = NULL;
-
+	int number = get_number();
+	if(number < 3)
+		return 0;
 	if ((pDir=opendir("/dev/")) == NULL)
 	{
 		printf("Update: Open update directory error!");
@@ -115,11 +146,26 @@ int get_path(void)
 					if(usb_info->vid==3944 && usb_info->pid==22630)	// touch
 					{	
 						if(strcmp(pFile->d_name,"hidraw0") == 0)
-							event = 4;
+						{	
+							if(number > 4)
+								event = 4;
+							else
+								event = 1;
+						}
 						else if(strcmp(pFile->d_name,"hidraw1") == 0)
-							event = 5;
+						{
+							if(number > 4)
+								event = 5;
+							else
+								event = 2;
+						}
 						else
-							event = 6;
+						{
+							if(number > 4)
+								event = 6;
+							else
+								event = 3;
+						}
 					}
 					else if((usb_info->vid==2303) && (usb_info->pid==9))	// RFID
 						snprintf(dev_path[0],20,"%s",path);
@@ -176,23 +222,26 @@ int main(void)
     event = get_path();
 	get_local_ip("eth1",ip);
 //	printf("ip: %s\n",ip);
-	sprintf(c2,"2c export TSLIB_TSDEVICE=/dev/input/event%d",event);
-	sprintf(c10,"10c export QWS_MOUSE_PROTO=tslib:/dev/input/event%d",event);
-	printf("%s\n%s\n",c2,c10);
-	printf("rfid path: %s\n",dev_path[0]);
-	printf("scan path: %s\n",dev_path[1]);
-	if ((pid = fork()) < 0) 
+	if(event != 0)
 	{
-		exit(0);
-   	//	perror("fork1");
-	}
-	else if (pid == 0)
-		execl("/bin/sed","sed","-i",c2,"/home/qtdemo",(char *) 0);
-	else
-	{
-		waitpid(pid);
-		execl("/bin/sed","sed","-i",c10,"/home/qtdemo",(char *) 0);
-		return 0;
+		sprintf(c2,"2c export TSLIB_TSDEVICE=/dev/input/event%d",event);
+		sprintf(c10,"10c export QWS_MOUSE_PROTO=tslib:/dev/input/event%d",event);
+		printf("%s\n%s\n",c2,c10);
+		printf("rfid path: %s\n",dev_path[0]);
+		printf("scan path: %s\n",dev_path[1]);
+		if ((pid = fork()) < 0) 
+		{
+			exit(0);
+	   	//	perror("fork1");
+		}
+		else if (pid == 0)
+			execl("/bin/sed","sed","-i",c2,"/home/qtdemo",(char *) 0);
+		else
+		{
+			waitpid(pid);
+			execl("/bin/sed","sed","-i",c10,"/home/qtdemo",(char *) 0);
+			return 0;
+		}
 	}
 	return 0;
 /*
