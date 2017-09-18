@@ -310,10 +310,6 @@ DItemRevisionGUID=
 GenerateClassCluster=0
 DocumentUniqueId=RNRQIRSF
 
-[GeneratedDocument1]
-DocumentPath=Project Outputs for MC-IMX6Q-BOARD\Design Rule Check - IMX6.html
-DItemRevisionGUID=
-
 [Configuration1]
 Name=Default Configuration
 ParameterCount=0
