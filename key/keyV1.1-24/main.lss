@@ -287,7 +287,6 @@ ISR(USART_RXC_vect)
 
 00000164 <Send595>:
 
-
 void Send595(unsigned long data)
 {
  164:	20 e0       	ldi	r18, 0x00	; 0
@@ -309,7 +308,7 @@ void Send595(unsigned long data)
         data <<= 1;
         SCK_595_L;
  174:	d9 98       	cbi	0x1b, 1	; 27
-
+}
 
 void Send595(unsigned long data)
 {
@@ -760,8 +759,8 @@ _delay_loop_2(uint16_t __count)
  366:	0e 94 b2 00 	call	0x164	; 0x164 <Send595>
 				BEEP_100MS;
  36a:	ad 9a       	sbi	0x15, 5	; 21
- 36c:	88 e9       	ldi	r24, 0x98	; 152
- 36e:	98 e0       	ldi	r25, 0x08	; 8
+ 36c:	80 ed       	ldi	r24, 0xD0	; 208
+ 36e:	97 e0       	ldi	r25, 0x07	; 7
  370:	fe 01       	movw	r30, r28
  372:	31 97       	sbiw	r30, 0x01	; 1
  374:	f1 f7       	brne	.-4      	; 0x372 <main+0x142>
@@ -986,8 +985,8 @@ _delay_loop_2(uint16_t __count)
  464:	0e 94 b2 00 	call	0x164	; 0x164 <Send595>
 								BEEP_100MS;
  468:	ad 9a       	sbi	0x15, 5	; 21
- 46a:	88 e9       	ldi	r24, 0x98	; 152
- 46c:	98 e0       	ldi	r25, 0x08	; 8
+ 46a:	80 ed       	ldi	r24, 0xD0	; 208
+ 46c:	97 e0       	ldi	r25, 0x07	; 7
  46e:	f5 01       	movw	r30, r10
  470:	31 97       	sbiw	r30, 0x01	; 1
  472:	f1 f7       	brne	.-4      	; 0x470 <__stack+0x11>

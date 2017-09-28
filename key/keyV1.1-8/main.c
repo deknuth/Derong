@@ -41,9 +41,9 @@
 #define RX_ENA	PORTD&=~0x04
 #define MAX_R_LEN 16
 
-#define BEEP_100MS	{ PORTB|=0x20; _delay_ms(150); PORTB&=~0x20; }
+#define BEEP_100MS	{ PORTB|=0x20; _delay_ms(200); PORTB&=~0x20; }
 #define FEED_DOG	PORTC^=0x20;
-//#define TEST
+#define TEST
 
 volatile unsigned char  U0Ready = 0;
 volatile unsigned char  U0Count = 0;
@@ -181,20 +181,20 @@ int main(void)
 	
 	encode = ((PIND&0xF0)>>4);		// ВІТы
 	
-#ifdef TEST
-
-	while(1)
+	if(encode == 0xF)
 	{
-		for(i=0;i<8;i++)
+		while(1)
 		{
-			Send595(bit[i]);
-	//		BEEP_100MS;
-			_delay_ms(300);
-			Send595(0);
-			FEED_DOG;
+			for(i=0;i<8;i++)
+			{
+				Send595(bit[i]);
+				BEEP_100MS;
+				Send595(0);
+				_delay_ms(100);
+				FEED_DOG;
+			}
 		}
 	}
-#endif
     while(1)
     {	
 		FEED_DOG;

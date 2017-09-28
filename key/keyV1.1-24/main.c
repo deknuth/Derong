@@ -56,7 +56,7 @@
 #define RX_ENA	PORTD&=~0x04
 #define MAX_R_LEN 16
 
-#define BEEP_100MS	{ PORTC|=1<<5; _delay_ms(150); PORTC&=~1<<5; }
+#define BEEP_100MS	{ PORTC|=1<<5; _delay_ms(200); PORTC&=~1<<5; }
 #define FEED_DOG	PORTB^=1<<4;
 //#define TEST
 
