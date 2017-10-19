@@ -1,0 +1,117 @@
+/*
+ * mobile.c
+ *
+ *  Created on: 2015.02.01
+ *      Author: Lovenix
+ */
+#include "../inc/main.h"
+#include "../inc/mobile.h"
+
+int MCtFtBack(int mfd,int ctWord,int stat)		// mobile control failed back
+{
+	unsigned char pack[10+APP_KEY_LEN] = {0};
+	pack[0] = L_PACK_H;
+	pack[1] = 0;
+	pack[2] = APP_KEY_LEN;
+	pack[3] = L_SER_VER>>8;
+	pack[4] = L_SER_VER&0xf;
+	pack[5] = ctWord >> 8;
+	pack[6] = ctWord & 0xFF;
+	pack[7] = stat >> 8;
+	pack[8] = stat & 0xFF;
+	memcpy(&pack[9],mInfo[mfd].aKey,APP_KEY_LEN);
+	pack[17] = 0xFF;
+	if(_m_write(mfd,pack,10+APP_KEY_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+int MCtBack(int mfd,int stat,unsigned char* sc)				// mobile control back packet
+{
+	unsigned char pack[18+APP_KEY_LEN] = {0};
+	int i,j;
+	char date[15] = {0};
+	gtime(date);
+	pack[0] = L_PACK_H;
+	pack[1] = 0;
+	pack[2] = 18+APP_KEY_LEN;
+	pack[3] = L_SER_VER>>8;
+	pack[4] = L_SER_VER&0xFF;
+	pack[5] = stat>>8;
+	pack[6] = stat&0xFF;
+	memcpy(&pack[7],sc,4);
+//	printf("date: %s\n",date);
+	for(i=0,j=11; j<17; i++,j++)
+	{
+		pack[j] = ((int)date[i]-48)*10;
+		pack[j] += ((int)date[++i]-48);
+	}
+	pack[j+APP_KEY_LEN] = L_PACK_T;
+	memcpy(&pack[j],mInfo[mfd].aKey,APP_KEY_LEN);
+	if(_m_write(mfd,pack,18+APP_KEY_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+int MCtaBack(int mfd,unsigned int stat)				// mobile control back packet
+{
+	unsigned char pack[14+APP_KEY_LEN] = {0};
+	int i,j;
+	char date[15] = {0};
+	gtime(date);
+	pack[0] = L_PACK_H;
+	pack[1] = 0;
+	pack[2] = 14+APP_KEY_LEN;
+	pack[3] = L_SER_VER>>8;
+	pack[4] = L_SER_VER&0xFF;
+	pack[5] = stat>>8;
+	pack[6] = stat&0xFF;
+	for(i=0,j=7; j<13; i++,j++)
+	{
+		pack[j] = ((int)date[i]-48)*10;
+		pack[j] += ((int)date[++i]-48);
+	}
+	memcpy(&pack[j],mInfo[mfd].aKey,APP_KEY_LEN);
+	pack[j+APP_KEY_LEN] = L_PACK_T;
+	if(_m_write(mfd,pack,14+APP_KEY_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+int DynBut(int mfd,unsigned char* rBuf)
+{
+	int i=7,j=0;
+	unsigned int bid;
+	char context[15] = {0};
+	char sql[512] = {0};
+	bid = rBuf[i++];
+	bid <<= 8;
+	bid += rBuf[i++];
+	bid <<= 8;
+	bid += rBuf[i++];
+	for(; i<25; i++)
+		context[j++] = rBuf[i];
+	snprintf(sql,sizeof(sql),"UPDATE t_menu_info SET m_but_name = '%s',m_user='%s' WHERE m_id = %d",context,mInfo[mfd].user,bid);
+	OciInsert(sql);
+	return 1;
+}
+
+void mSynPack(int mfd,unsigned char* pack,unsigned char len)
+{
+	pack[0] = L_PACK_H;
+	pack[1] = 0;
+	pack[2] = len;
+	pack[3] = L_SER_VER>>8;
+	pack[4] = L_SER_VER&0xFF;
+	memcpy(&pack[len-APP_KEY_LEN-1],mInfo[mfd].aKey,APP_KEY_LEN);
+	pack[len-1] = L_PACK_T;
+}
+
+void GetKey(unsigned char* key,const unsigned char* buf, int len)
+{
+	memcpy(key, &buf[len - APP_KEY_LEN - 1], APP_KEY_LEN);
+}
+

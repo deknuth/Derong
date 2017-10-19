@@ -1,0 +1,144 @@
+/*
+ * menu.c
+ *
+ *  Created on: 2015.1.19
+ *      Author: lovenix
+ */
+#include "../inc/main.h"
+char* CheckMenu(char* user,char* mac)
+{
+	cJSON *menu,*sublevel,*root;
+	int i,j,k=0,rs,count=0;
+	char sql[512] = {0};
+	char type[4] = {0};
+	char state[4] = {0};
+	char node[8] = {0};
+	char name[32] = {0};
+	char mid[4] = {0};
+	char class[MML][MNL] = {{0}};
+	char* mStr = 0;
+
+	CHECK_DATA *head = (CHECK_DATA *)malloc(sizeof(CHECK_DATA));
+	memset(head , 0x00, sizeof(CHECK_DATA));
+
+	menu = cJSON_CreateObject();
+	snprintf(sql,sizeof(sql),"select m_group from t_menu_info where m_user = '%s' group by m_group",user);
+	sem_wait(&sem_or);
+	rs = OciCheck(sql,head);
+	sem_post(&sem_or);
+	if(rs != -1)
+	{
+		if (head != NULL)
+		{
+			while(head->next != NULL)
+			{
+				head = head->next;
+				memcpy(class[k++],head->buf,strlen(head->buf));
+				count++;
+			}
+			if(!count)
+			{
+				count++;
+				memset(sql,0x00,256);
+				snprintf(sql,sizeof(sql),"select m_group from t_menu_info where m_mac = '%s' group by m_group",mac);
+				sem_wait(&sem_or);
+				rs = OciCheck(sql,head);
+				sem_post(&sem_or);
+				if(rs != -1)
+				{
+					if (head != NULL)
+					{
+						while(head->next != NULL)
+						{
+							head = head->next;
+							memcpy(class[k++],head->buf,strlen(head->buf));
+							count++;
+						}
+
+					}
+				}
+				else
+					lprintf(lfd, FATAL, "Failed： %s",sql);
+			}
+
+		}
+	}
+	else
+		lprintf(lfd, FATAL, "Failed： %s",sql);
+
+	if(k)
+	{
+		while(k--)
+		{
+			memset(sql,0x00,256);
+			memset(head , 0x00, sizeof(CHECK_DATA));
+
+			if(count)
+				snprintf(sql,sizeof(sql),"select m_id,to_char(m_but_type),to_char(m_node_num),m_but_name,e_node_state from\
+						t_menu_info inner join t_equ_online_info on m_mac = e_mac and m_group=e_node_group and m_node_num= e_node_num\
+						where m_mac='%s' and m_group='%s' ORDER BY m_node_num DESC",mac,class[k]);
+			else
+				snprintf(sql,sizeof(sql),"select m_id,to_char(m_but_type),to_char(m_node_num),m_but_name,e_node_state from\
+						t_menu_info inner join t_equ_online_info on m_mac = e_mac and m_group=e_node_group and m_node_num= e_node_num\
+						where m_user='%s' and m_group='%s' ORDER BY m_node_num DESC",user,class[k]);
+			cJSON_AddItemToObject(menu, class[k], root=cJSON_CreateArray());	//sublevel=cJSON_CreateObject());
+
+			sem_wait(&sem_or);
+			rs = OciCheck(sql,head);
+			sem_post(&sem_or);
+			if(rs != -1)
+			{
+				if (head != NULL)
+				{
+					while (head->next != NULL)
+					{
+						i = j = 0;
+						head = head->next;
+
+						while(head->buf[j] != '$')
+							state[i++] = head->buf[j++];
+						state[i] = '\0';
+
+						++j;
+						i = 0;
+						while(head->buf[j] != '$')
+							name[i++] = head->buf[j++];
+						name[i] = '\0';
+
+						++j;
+						i = 0;
+						while(head->buf[j] != '$')
+							node[i++] = head->buf[j++];
+						node[i] = '\0';
+
+						++j;
+						i = 0;
+						while(head->buf[j] != '$')
+							type[i++] = head->buf[j++];
+						type[i] = '\0';
+
+						++j;
+						i = 0;
+						while(head->buf[j] != '$')
+							mid[i++] = head->buf[j++];
+						mid[i] = '\0';
+
+						cJSON_AddItemToArray(root,sublevel=cJSON_CreateObject());
+						cJSON_AddStringToObject(sublevel,"name",name);
+						cJSON_AddStringToObject(sublevel,"node",node);		// Create json
+						cJSON_AddStringToObject(sublevel,"type",type);
+						cJSON_AddStringToObject(sublevel,"id",mid);
+						cJSON_AddStringToObject(sublevel,"group",class[k]);
+						cJSON_AddStringToObject(sublevel,"state",state);
+					}
+				}
+			}
+			else
+				lprintf(lfd, FATAL, "Failed： %s",sql);
+		}
+	}
+	FreeRS(head);
+	mStr = cJSON_Print(menu);
+	cJSON_Delete(menu);
+	return mStr;
+}

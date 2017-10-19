@@ -1,0 +1,356 @@
+/*
+ * update.c
+ *
+ *  Created on: 2015年7月20日
+ *      Author: Lovenix
+ */
+#include "../inc/main.h"
+#include "../inc/update.h"
+#include "../inc/md5.h"
+
+volatile unsigned char uOn = 0;
+unsigned char *buffer;
+SFILE *UFP;
+
+union{
+	int a;
+	char b;
+}endian;
+
+/*
+SFILE *insert_file(char* name,float version,int len)
+{
+	SFILE *pLink = NULL;
+	pLink = (SFILE *)malloc(sizeof(SFILE));
+	pLink->version = version;
+	pLink->lenght = len;
+	memcpy(pLink->name,name,strlen(name));
+	pLink->next = NULL;
+	return pLink;
+}
+*/
+void *CoreUp(void *arg)
+{
+	DIR* pDir = NULL;
+	int mCount = 0;
+	char *pVer;
+	float ret,version = 1.0;
+    int vLen,nLen,i,fd=0,j,count = 0;
+    unsigned long fLen = 0;
+	unsigned char cFlag = 0;
+	unsigned char crc = 0;
+    unsigned char decrypt[16];
+    unsigned int rLen;
+	char ver[4] = {0};
+    unsigned char buf[4096] = {0};
+    char path[64] = {0};
+	time_t la_time = 0;
+	struct stat *dBuf;
+
+	pVer = (char *)malloc(sizeof(char)*8);
+	dBuf = (struct stat *)malloc(sizeof(struct stat));
+	UFP = (SFILE *)malloc(sizeof(SFILE));
+//	buffer = (unsigned char *)malloc(sizeof(unsigned char)*4);
+	struct dirent *pFile = NULL;
+
+    MD5_CTX md5;
+    MD5Init(&md5);
+    ret = version = 1.0;
+	while(1)
+	{
+//		while(uOn);
+		memset(dBuf,0x00,sizeof(struct stat));
+		if(stat(UPDIR,dBuf) == 0)
+		{
+			if(dBuf->st_mtime > la_time)			// change happen
+			{
+				la_time = dBuf->st_mtime;
+				if ((pDir=opendir(UPDIR)) == NULL)
+				{
+					lprintf(lfd, FATAL, "Update: Open update directory error!");
+					break;
+				}
+				else
+				{
+					memset(pVer,0x00,8);
+					memset(path,0x00,64);
+					memset(ver,0x00,8);
+
+					while((pFile = readdir(pDir)) != NULL)
+					{
+						if(pFile->d_type == 8)		//file
+						{
+							if(kmp(pFile->d_name,UNAME) == 0)
+							{
+								nLen = strlen(pFile->d_name);
+								if(kmp(pFile->d_name,SUFF) == (nLen-7))			// check suffix
+								{
+						//			fLink = insert_file(pFile->d_name,0,strlen(pFile->d_name));
+									vLen = nLen-13;
+									if(vLen > 2 && vLen < 6)
+									{
+										memset(pVer,0x00,8);
+										SubMid(pVer,pFile->d_name,vLen,6);
+										ret = atof(pVer);
+										if(vLen > 4 && ret < 10.0)
+										{
+											;
+										}
+										else if(ret < 100.0)
+										{
+											if((ret-version) > 0.000001)
+											{
+												memset(ver,0x00,8);
+												memset(path,0x00,64);
+												version = ret;
+												if(vLen > 4)
+												{
+													if(version < 10.0)
+														vLen--;
+												}
+												else
+												{
+													if(version > 10.0)
+														ver[3] = '0';
+												}
+												for(i=0,j=0; i<vLen; i++)
+												{
+													if(pVer[i] != '.')
+														ver[j++] = pVer[i];
+												}
+												snprintf(path,sizeof(path),"%s%c%s",UPDIR,'/',pFile->d_name);
+
+												r_printf("update file: %s\n",path);
+
+												cFlag = 1;
+												count = 0;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				closedir(pDir);
+			}
+		}
+		else
+		{
+			lprintf(lfd, FATAL, "Update: directory stat error!");
+			break;
+		}
+		sleep(5);
+		if(cFlag)
+			count++;
+		if(count == 20)
+		{
+			if((fd = open(path,O_RDONLY)) != -1)
+			{
+				fLen = lseek(fd,0L,SEEK_END);
+				lseek(fd,0L,SEEK_SET);
+				if(fLen < 2147483000)
+				{
+					while(1)		// md5 校验
+					{
+						rLen = read(fd,buf,4096);
+						if(rLen > 0)
+							MD5Update(&md5,buf,rLen);
+						else if(rLen == 0)
+						{
+							crc = 1;
+							break;
+						}
+						else
+						{
+							crc = 0;
+							lprintf(lfd, FATAL, "Update: read update file to CRC error!");
+							break;
+						}
+						memset(buf,0x00,rLen);
+					}
+					if(crc)			// read normal end
+					{
+						MD5Final(&md5,decrypt);		// get md5 value
+						uOn = 0;		// stop anything update
+						while(1)		// wait update over
+						{
+							for(i=0; i<MAXEPOLLSIZE; i++)
+							{
+								if(rInfo[i].uFlag)
+									break;
+							}
+							if(i == MAXEPOLLSIZE)
+								break;
+							else
+								continue;
+						}
+						/*
+						printf("%s:%d:%s:free(0x%lx)\n", __FILE__, __LINE__,__func__, (unsigned long)buffer);
+						free(buffer);
+						printf("%s:%d:%s:free(0x%lx)\n", __FILE__, __LINE__,__func__, (unsigned long)buffer);
+						buffer = (unsigned char *)malloc(sizeof(unsigned char) * fLen);
+						if(buffer == NULL)
+						{
+							lprintf(lfd, FATAL, "Update: malloc update buffer error!");
+							break;
+						}
+						else
+						*/
+						{
+//							memset(buffer,0x00,sizeof(unsigned char)*fLen);
+							if(mCount++)
+							{
+								if(munmap(buffer,UFP->len) == -1)
+									lprintf(lfd, FATAL,"MUNMAP: %s",strerror(errno));
+							}
+							lseek(fd,0L,SEEK_SET);
+							buffer = mmap(NULL , fLen, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, fd, 0);
+							if(MAP_FAILED == buffer)
+							{
+								lprintf(lfd, FATAL, "Update: MMAP update buffer error!");
+								break;
+							}
+							memset(UFP,0x00,sizeof(SFILE));
+							memcpy(UFP->path,path,strlen(path));
+							memcpy(UFP->md5,decrypt,16);
+							StringToDEC(UFP->version,ver);
+							UFP->len = fLen;
+						}
+						uOn = 1;
+					}
+					else
+					{
+						remove(path);		// delete error file
+						lprintf(lfd, FATAL, "Update: Update file CRC failed!");
+					}
+				}
+				else
+				{
+					remove(path);		// delete error file
+					lprintf(lfd, FATAL, "Update: Update file too lager!");
+				}
+				close(fd);
+			}
+			else
+			{
+				remove(path);		// delete error file
+				lprintf(lfd, FATAL, "Update: Open update file failed!");
+			}
+			cFlag = count = 0;
+		}
+	}
+	free(pVer);
+	free(dBuf);
+	free(UFP);
+	return (void *)1;
+}
+
+int UpdateReq(int rfd,unsigned int version)
+{
+	unsigned char bPack[8] = {0};
+	bPack[0] = 0xfd;
+	bPack[1] = 0x00;
+	bPack[2] = 0x08;
+	bPack[3] =	UFP->version[0];
+	bPack[4] =	UFP->version[1];
+	bPack[5] = 0x05;
+	if(version >= (((UFP->version[0])<<8) + UFP->version[1]))
+		bPack[6] = 0x08;
+	else
+		bPack[6] = 0x05;
+	bPack[7] = 0xff;
+	if(_write(rfd,bPack,8))
+	{
+		if(bPack[6] == 0x08)
+			return 0;
+		else
+			return 1;
+	}
+	else
+		return 0;
+
+}
+
+int UpdateARM(int rfd)
+{
+	unsigned int diff = 0;
+	unsigned int quo = 0;
+	unsigned char bPack[30] = {0};
+
+	endian.a = 1;
+	bPack[0] = 0xfd;
+	bPack[1] = 0x00;
+	bPack[2] = 0x1E;
+	bPack[3] =	UFP->version[0];
+	bPack[4] =	UFP->version[1];
+	bPack[5] = 0x05;
+	bPack[6] = 0x01;
+	bPack[7] = 0x00;
+	bPack[8] = 0x01;
+	memcpy(&bPack[9],UFP->md5,16);
+	if(endian.b)
+	{
+		bPack[25] = (unsigned char)(UFP->len >> 24);
+		bPack[26] = (unsigned char)((UFP->len & 0xFF0000) >> 16);
+		bPack[27] = (unsigned char)((UFP->len & 0xFF00) >> 8);
+		bPack[28] = (unsigned char)(UFP->len & 0xFF);
+	}
+	else
+	{
+		bPack[28] = (unsigned char)(UFP->len >> 24);
+		bPack[27] = (unsigned char)((UFP->len & 0xFF0000) >> 16);
+		bPack[26] = (unsigned char)((UFP->len & 0xFF00) >> 8);
+		bPack[25] = (unsigned char)(UFP->len & 0xFF);
+	}
+
+	bPack[29] = 0xff;
+	if(_write(rfd,bPack,30))
+	{
+		sleep(3);
+		if(UFP->len > 4096)
+		{
+			diff = (UFP->len) % 4096;
+			quo = (UFP->len) / 4096;
+
+			if(_write(rfd,buffer,UFP->len))
+			{
+				UpdateEnd(rfd,0x03);
+				return 1;
+			}
+			else
+			{
+				UpdateEnd(rfd,0x05);
+				lprintf(lfd, FATAL, "Update: send update file to robot error!");
+				return 0;
+			}
+		}
+		else
+		{
+			lprintf(lfd, FATAL, "Update: update file length exception!");
+			return 0;
+		}
+
+	}
+	else
+	{
+		lprintf(lfd, FATAL, "Update: update confirmation failed!");
+		return 0;
+	}
+}
+
+int UpdateEnd(int rfd,unsigned char stat)
+{
+	unsigned char ePack[10] = {0};
+	ePack[0] = 0xFE;
+	ePack[1] = 0x00;
+	ePack[2] = 0x0A;
+	ePack[3] = UFP->version[0];
+	ePack[4] = UFP->version[1];
+	ePack[5] = 0x02;
+	ePack[6] = stat;
+	ePack[7] = 0x00;
+	ePack[8] = 0x01;
+	ePack[9] = 0xFF;
+	return _write(rfd,ePack,10);
+}

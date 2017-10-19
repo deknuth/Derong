@@ -1,0 +1,14 @@
+/*
+ * base64.h
+ *
+ *  Created on: 2015年12月3日
+ *      Author: Lovenix
+ */
+
+#ifndef BASE64_H_
+#define BASE64_H_
+
+extern int base64Encoder(char *src,char *enc);
+
+#endif
+

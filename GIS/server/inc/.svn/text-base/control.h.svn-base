@@ -1,0 +1,21 @@
+#ifndef CONTROL_H_
+#define CONTROL_H_
+
+extern int AirCT(int rfd,unsigned char* rBuf);
+extern int EquCT(int rfd,unsigned char* rBuf,int rLen);
+
+extern int AudioCT(int rfd,unsigned char* rBuf);
+extern int SecurCT(int rfd,unsigned char* rBuf);
+extern int CurtCT(int rfd,unsigned char* rBuf);
+extern int TqCT(int rfd,unsigned char* rBuf);
+extern int TqStat(int rfd,unsigned char* rBuf);
+extern int TqReg(int rfd,unsigned char* rBuf);						// 注册专用函数
+extern int TqAlive(int rfd,unsigned char* rBuf);
+extern int TqOnline(int rfd,unsigned char* rBuf);
+extern int SwitchInfo(int rfd, unsigned char* rBuf,int type,int len);
+extern int IrManage(int rfd,int stat,unsigned char *buf);
+#define TQ_PACK_H 0xFE
+#define TQ_PACK_T 0xEF
+#define TQ_PACK_L 0x0F
+
+#endif

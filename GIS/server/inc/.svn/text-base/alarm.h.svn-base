@@ -1,0 +1,14 @@
+/*
+ * alarm.h
+ *
+ *  Created on: 2016年3月15日
+ *      Author: Administrator
+ */
+
+#ifndef ALARM_H_
+#define ALARM_H_
+
+extern int AlarmInfo(int rfd,unsigned char* rBuf);
+extern int rAlarmBack(int rfd,unsigned char* rBuf,unsigned char len);		// robot alarm back
+extern int AInfoCheck(int rfd);
+#endif

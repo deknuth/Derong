@@ -1,0 +1,15 @@
+#ifndef DES_H_
+#define DES_H_
+
+#define PLAIN_FILE_OPEN_ERROR -1
+#define KEY_FILE_OPEN_ERROR -2
+#define CIPHER_FILE_OPEN_ERROR -3
+#define OK 1
+#define KEY "Lovenix"
+typedef unsigned char ElemType;
+extern int DES_Encrypt(unsigned char *plainBlock,unsigned char *key,unsigned char *cipherBlock,unsigned int pLen);
+extern int DES_Decrypt(unsigned char *cipherBlock,unsigned char *key,unsigned char *plainBlock);
+
+#endif	// DES_H_ 
+
+

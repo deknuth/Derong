@@ -1,0 +1,998 @@
+#include "../inc/main.h"
+#include "../inc/user.h"
+
+static int mLoginBack(unsigned int stat,unsigned char* pack,unsigned char* id,unsigned char* lip);
+MD5_CTX md5;
+
+int MobileAlive(int mfd,unsigned char *buf,int len)
+{
+	unsigned char pack[12+APP_KEY_LEN] = {0};
+	unsigned int index = 0;
+	pack[0] = 0xfd;
+	pack[1] = 0x00;
+	pack[2] = 0x14;
+	pack[3] = UFP->version[0];
+	pack[4] = UFP->version[1];
+	pack[7] = GetMfdNum(mInfo[mfd].hiv);
+	if(hInfo[mInfo[mfd].hiv].rhiv > 0)
+		pack[8] = 0xFF;
+	else
+		pack[8] = 0x00;
+//	if(hInfo[mInfo[mfd].hiv].wfd > 0)
+//		pack[6] |= 0xF0;
+	index = mInfo[mfd].hiv;
+	pack[9] = otInfo[index].version;
+	pack[10] = mInfo[mfd].w_state;
+	GetKey(&pack[11],buf,len);
+	pack[11+APP_KEY_LEN] = 0xFF;
+	if(_m_write(mfd,pack,12+APP_KEY_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+int RegProcess(int mfd,unsigned char* buf,int len)
+{
+	int crc=1;
+	int index;
+	char sql[512] = {0};
+	char sql1[192] = {0};
+	char sql2[192] = {0};
+	char user_reser[17] = {0};
+	char result[16] = {0};
+	unsigned char sn[8] = {0};
+	unsigned int vc = 0;
+	unsigned int resno = 0;
+	unsigned int rb = 0;
+	unsigned char rs = 0;
+	unsigned char temp[16] = {0};
+	unsigned char pack[22+APP_KEY_LEN] = {0};
+	unsigned char decrypt[16] = {0};
+	char phone[12] = {0};
+
+	REG *RInfo;
+	RInfo = (REG *)malloc(sizeof(REG));
+	memset(RInfo, 0x00, sizeof(REG));
+
+	RInfo->version = buf[3];
+	RInfo->version <<= 8;
+	RInfo->version += buf[4];
+
+	RInfo->ctw = buf[5];
+	RInfo->ctw <<= 8;
+	RInfo->ctw += buf[6];
+
+	memcpy(temp,&buf[7],8);
+	if(IdCrc(temp,8) == 0)
+		crc = 0;
+	else
+		HexToString(RInfo->user,temp,8);
+
+	memcpy(temp,&buf[15],16);
+	if(IdCrc(temp,16) == 0)
+		crc = 0;
+	else
+		HexToString(RInfo->passwd,temp,16);
+
+	memcpy(temp,&buf[31],6);
+	HexToString(RInfo->phone,temp,6);
+
+	memcpy(temp,&buf[37],6);
+	HexToString(RInfo->date,temp,6);
+
+	memcpy(sn,&buf[43],8);
+	HexToString(RInfo->sn,sn,8);
+
+	memcpy(temp,&buf[52],3);
+	vc = temp[0]*10000 + temp[1]*100 + temp[2];
+
+	m_printf("VerifCode: %d\t reg phone:%s\n",vc,RInfo->phone);
+
+	if(crc)
+	{
+		snprintf(sql,sizeof(sql),"SELECT count(n_id) FROM t_robot_info where n_mac='%s'",RInfo->sn);
+		snprintf(sql1,sizeof(sql1),"SELECT count(r_id) FROM t_user_info where r_phone='%s'",RInfo->phone);
+		snprintf(sql2,sizeof(sql2),"SELECT count(r_id) FROM t_user_info where r_user='%s'",RInfo->user);
+		index = GetHashTablePos(RInfo->phone,SmsHash,SHI);
+
+		m_printf("VerifCode2: %d\t hash index: %d\n",sInfo[index].VerifCode,index);
+
+		if(index > 0)
+		{
+			if(vc == sInfo[index].VerifCode)
+			{
+				sInfo[index].VerifCode = -1;
+				sem_wait(&sem_or);
+				rs = CountCheck(oracle_env, sql, result);
+				if(rs == 1)
+				{
+					rs = result[0] - 48 ;
+					if(!rs)				// ID error
+						rb = 0x103;
+					else				// ID right
+					{
+						resno = 4;
+						rs = CountCheck(oracle_env, sql1, result);
+						if(rs == 1)
+						{
+							rs = result[0] - 48 ;
+							if(rs)
+								rb = 0x10E;
+							else 		// phone not exist
+							{
+								resno |= 2;
+								rs = CountCheck(oracle_env, sql2, result);
+								if(rs == 1)
+								{
+									rs = result[0] - 48 ;
+									if(rs)
+										rb = 0x10B;
+									else
+										resno += 1;
+								}
+								else
+									rb = 0x106;
+							}
+						}
+						else
+							rb = 0x106;
+					}
+				}
+				else
+					rb = 0x106;
+				sem_post(&sem_or);
+			}
+			else
+				rb = 0x104;
+		}
+		else
+			rb = 0x113;
+
+		if(resno == 7)
+		{
+			sscanf(RInfo->phone,"%*[0]%12s",phone);
+			MD5Init(&md5);
+			MD5Update(&md5,(unsigned char *)phone,strlen(phone));		// 备用账号
+			MD5Final(&md5,decrypt);
+			HexToString(user_reser,&decrypt[4],8);
+			snprintf(sql,sizeof(sql),"insert into T_USER_INFO (R_ID,R_USER,R_PASSWD,R_PHONE,R_DATE,R_SN,R_USERID,R_MASTER,R_USER_RESER,R_REG_TIME)\
+					values ((select n_id from t_robot_info where n_mac='%s'),'%s','%s','%s','%s','%s','%s','%d','%s',to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'))",
+					RInfo->sn,RInfo->user,RInfo->passwd,RInfo->phone,RInfo->date,RInfo->sn,RInfo->user,sInfo[index].master,user_reser);
+
+			s_printf("REG SQL: %s\n",sql);
+
+			if(!OciInsert(sql))
+			{
+				rb = 0x106;				// database abnormal
+				lprintf(lfd, FATAL, "Mobile[%x]: User register insert database abnormal!",RInfo->version);
+			}
+			else
+			{
+				rb = 0x101;
+				lprintf(lfd, INFO, "Mobile[%x]:[%s] User register success!",RInfo->version,RInfo->user);
+			}
+		}
+	}
+	else
+	{
+		rb = 0x103;
+		lprintf(lfd, INFO, "Mobile[%x]: Register ID error!",RInfo->version);
+	}
+
+	if(rb == 0x101)
+	{
+		memset(decrypt,0,16);
+		DES_Encrypt(sn,(unsigned char *)KEY,decrypt,8);		// create push alias
+		memcpy(&pack[7],decrypt,8);
+		DelHashTablePos(RInfo->phone,SmsHash,SHI);
+	}
+
+	BackPacket(rb,pack,0,22+APP_KEY_LEN,1);
+	GetKey(&pack[21],buf,len);
+	_m_write(mfd,pack,22+APP_KEY_LEN);				// 注册返回包
+	free(RInfo);
+	return 1;
+}
+
+int BackPacket(unsigned int stat,unsigned char *pack,int type,unsigned int len,int index)		// password  modify \ user register back pack
+{
+	int i,j;
+	char date[15] = {0};
+	gtime(date);
+	pack[0] = L_PACK_H;
+	pack[1] = (len & 0xFF00) >> 8;
+	pack[2] = len & 0xFF;
+	if(type)
+	{
+		pack[3] = (UFP->version[0]) + 128;
+		pack[4] = UFP->version[1];
+	}
+	else
+	{
+		pack[3] = L_SER_VER>>8;
+		pack[4] = L_SER_VER&0xf;
+	}
+	pack[5] = stat>>8;
+	pack[6] = stat&0xf;
+
+	if(index)
+	{
+		for(i=0,j=15; j<21; i++,j++)
+		{
+			pack[j] = ((int)date[i]-48)*10;
+			pack[j] += ((int)date[++i]-48);
+		}
+	}
+	else
+	{
+		for(i=0,j=7; j<13; i++,j++)
+		{
+			pack[j] = ((int)date[i]-48)*10;
+			pack[j] += ((int)date[++i]-48);
+		}
+	}
+	pack[len-1] = L_PACK_T;
+	return 1;
+}
+
+int mLoginProcess(int mfd,unsigned char* buf,int len)
+{
+	int uflag,iflag;
+	int nPos=0;
+	int iPos=0,i;
+	int mNum = 0;
+	char date[9] = {0};
+	char tim[7] = {0};
+	char sql[512] = {0};
+	char temp1[15] = {0};
+	char sn[17] = {0};
+	unsigned int stat = 0;
+	unsigned int logic = 0;
+	unsigned char temp[32] = {0};
+	unsigned char rid[8] = {0};
+	unsigned char cr = 0;
+	unsigned char pack[38+APP_KEY_LEN] = {0};
+	unsigned char ip[4] = {0};
+	unsigned char master = 0;
+	struct timeval ntime;
+
+	CHECK_DATA *head = (CHECK_DATA *)malloc(sizeof(CHECK_DATA));
+	LOGIN *LPak = (LOGIN *)malloc(sizeof(LOGIN));
+
+	memset(head , 0x00, sizeof(CHECK_DATA));
+	memset(LPak, 0x00, sizeof(LOGIN));
+	uflag = iflag = 0;
+	nPos = mfd;
+	if(hInfo[nPos].mcun < MUN)
+	{
+		LPak->version = buf[3];
+		LPak->version <<= 8;
+		LPak->version += buf[4];
+
+		LPak->ctw = buf[5];
+		LPak->ctw <<= 8;
+		LPak->ctw += buf[6];
+
+		LPak->index = buf[7];
+		LPak->index <<= 8;
+		LPak->index += buf[8];
+
+		memcpy(temp,&buf[9],8);
+		HexToString(LPak->user,temp,8);
+
+		memcpy(temp,&buf[17],16);
+		HexToString(LPak->passwd,temp,16);
+
+		memcpy(ip,&buf[33],4);
+
+		snprintf(sql,sizeof(sql),"select r_master,r_sn from t_user_info where (r_user='%s' or r_user_reser='%s') and r_passwd='%s'",LPak->user,LPak->user,LPak->passwd);
+
+		s_printf("Login SQL: %s\n",sql);
+
+		cr = ExecSQL(head,sql);
+		if(cr != -1)
+		{
+			if(head != NULL)
+			{
+				if(cr == 2)		// Single row
+				{
+					if(head->next != NULL)
+					{
+						head = head->next;
+						if(strlen(head->buf) == 19)
+						{
+
+							memcpy(sn,head->buf,16);
+							master = head->buf[17]-48;
+							m_printf("master: %d\n",master);
+							nPos = GetHashTablePos(sn,RidHash,MHI);
+							//iPos = GetMfdIndex(mfd,nPos);				// insert position
+							mNum = GetMfdNum(nPos);
+							iPos = mNum;
+			//				printf("\n\niPos:%d\t mNum: %d\n",iPos,mNum);
+							m_printf("connect user num: %d\n",mNum);
+							if(mNum)									// same SN login user > 0
+							{
+								for(i=0; i<mNum; i++)
+								{
+									if(DESCrc((unsigned char *)LPak->user,(unsigned char *)mInfo[hInfo[nPos].mhiv[i]].user,16))
+									{
+										logic = 3;
+										break;
+									}
+									else
+										logic = 0;
+									/*
+									value = (DESCrc((unsigned char *)mInfo[mfd].ip,(unsigned char *)mInfo[hInfo[nPos].mhiv[i]].ip,15) << 1) | DESCrc((unsigned char *)LPak->user,(unsigned char *)mInfo[hInfo[nPos].mhiv[i]].user,16);
+#ifdef MDEBUG
+									printf("login value: %d\n",value);
+#endif
+									switch(value)
+									{
+										case 1:		// 0b01			// same user
+											if(!uflag)				// user flag
+											{
+												logic += 2;
+												uflag = 1;
+											}
+											break;
+										case 2:		// 0b10			// same IP
+											if(iflag)
+											{
+												logic += 4;
+												iflag = 1;
+											}
+											break;
+										case 3:		// 0b11			// same IP and user
+											if(!iflag)
+												logic += 4;
+											if(!uflag)
+												logic += 2;
+											goto loop;
+										case 0:
+											break;	// 0b00
+									}
+								}
+							loop:
+								logic += 1;
+								*/
+								}
+			//					m_printf("iiii: %d\n",i);
+							}
+		//					printf("nPos: %d\tX:%s\t%s\t\n",nPos,mInfo[mfd].ip,mInfo[hInfo[nPos].mhiv[i]].ip);
+						//	if(strlen(mInfo[hInfo[nPos].mhiv].ip))
+				//			printf("ruser:%s\tsuser:%s\t\n",LPak->user,mInfo[hInfo[nPos].mhiv[0]].user);
+
+							m_printf("Mobile logic:%X\n",logic);
+
+							switch(logic)
+							{
+								case 0x00:		// never login
+									lprintf(lfd, INFO, "Mobile[%x]: [%s] User login success!",LPak->version,mInfo[mfd].ip);
+									stat = 0x01;
+									break;
+								case 0x05:			// same IP different user  login success
+									lprintf(lfd, INFO, "Mobile[%x]: Other User [%s] same IP login success!",LPak->version,mInfo[mfd].ip);
+									stat = 0x01;
+									break;
+#ifdef DLC_OPEN				// Duplicate login control open
+								case 0x03:			// duplicate login  different IP  same user
+									lprintf(lfd, FATAL, "Mobile[%x]: [%s] User duplicate login!",LPak->version,LPak->user);
+									stat = 0x09;
+									break;
+#else
+								case 0x03:
+									gettimeofday(&ntime, NULL);
+									mInfo[hInfo[nPos].mhiv[i]].cflag = -2;
+									mInfo[hInfo[nPos].mhiv[i]].cntime = (ntime.tv_sec - MOBIL_HEART_TIME);		// Reduce the timeout
+									lprintf(lfd, WARN, "Mobile[%x]: [%s] User duplicate login!",LPak->version,mInfo[mfd].ip);
+									stat = 0x01;
+									break;
+#endif
+								case 0x07:			// The two time login same IP address and same user
+									gettimeofday(&ntime, NULL);
+									mInfo[hInfo[nPos].mhiv[i]].cflag = -2;
+									mInfo[hInfo[nPos].mhiv[i]].cntime = (ntime.tv_sec - MOBIL_HEART_TIME);		// Reduce the timeout
+									lprintf(lfd, INFO, "Mobile[%x]: [%s] Same User [%s] same IP login success!",LPak->version,sn,mInfo[mfd].ip);
+									stat = 0x01;	// login success
+									break;
+								case 0x01:
+									lprintf(lfd, INFO, "Mobile[%x]: Other User [%s] different IP login success!",LPak->version,mInfo[mfd].ip);
+									stat = 0x01;
+									break;
+								case 0x06:
+									lprintf(lfd, INFO, "Mobile[%x]: [%s] User login success!",LPak->version,mInfo[mfd].ip);
+									stat = 0x01;
+									break;
+								default:
+									stat = 0x0E;
+									break;
+							}
+						}
+						else				// user name length abnormal
+							stat = 0x0E;	// database select abnormal
+					}
+					else
+						stat = 0x02;
+				}
+				else
+					stat = 0x02;
+			}
+			else
+				stat = 0x02;			// password or user error
+		}
+		else
+		{
+			lprintf(lfd, FATAL, "Mobile[%x]: Login OCI check failed!",LPak->version);
+			stat = 0x0E;		// database select abnormal
+		}
+
+		if(stat == 1)			// login success
+		{
+			memset(sql,0x00,512);
+			memset(temp,0x00,32);
+			snprintf(sql,sizeof(sql),"select w_id from t_watch_user where w_r_user='%s'",LPak->user);
+			sem_wait(&sem_or);
+			cr = OciCheck(sql,head);
+			sem_post(&sem_or);
+			if(cr != -1)
+			{
+				if(head != NULL)
+				{
+					if(cr == 1)		// Single row
+					{
+						if(head->next != NULL)
+						{
+							head = head->next;
+							memset(mInfo[mfd].wid,0x00,17);
+							memcpy(mInfo[mfd].wid,head->buf,strlen(head->buf));
+							mInfo[mfd].w_state = 1;
+							pack[21] = mInfo[mfd].w_state;		// watch info
+							for(i=0; i<MWU; )
+								if(whInfo[GetHashTablePos(mInfo[mfd].wid,WidHash,MHI)].mfd[i++] == 0)
+									break;
+							if(i<MWU)
+								whInfo[GetHashTablePos(mInfo[mfd].wid,WidHash,MHI)].mfd[i] = mfd;
+							else
+								;		// wait add logic
+						}
+						else
+						{
+							mInfo[mfd].w_state = 0;
+							pack[21] = mInfo[mfd].w_state;
+						}
+					}
+				}
+			}
+
+			gtime(temp1);
+			memcpy(date,temp1,8);
+			memcpy(tim,&temp1[8],6);
+		//	mInfo[mfd].hiv = GetHashTablePos(sn,RidHash,MHI);
+			mInfo[mfd].hiv = nPos;
+			hInfo[nPos].mhiv[iPos] = mfd;			// storage mfd hash
+			hInfo[nPos].mcun++;						// connect user ++
+			mInfo[mfd].tflag = mfd;					// set socket online flag
+			mInfo[mfd].mfd = mfd;
+			mInfo[mfd].master = master;
+			memcpy(mInfo[mfd].id,sn,16);
+			memcpy(mInfo[mfd].user,LPak->user,16);
+			if(hInfo[nPos].rhiv != 0)				// Robot online
+			{
+				UserOnlineInfo(hInfo[nPos].rhiv);
+				stat = 0x0C;
+			}
+			pack[22] = otInfo[nPos].version;		// Robot version
+			m_printf("Version: %d\n",otInfo[nPos].version);
+		}
+	}
+	else
+	{
+		nPos = GetHashTablePos(sn,RidHash,MHI);
+		stat = 0x0F;			// max user number overflow
+	}
+
+	StringToHex(rid,sn);
+	mLoginBack(stat,pack,rid,rInfo[hInfo[nPos].rhiv].lip);
+	unsigned char decrypt[8] = {0};
+
+	StringToHex(decrypt,otInfo[nPos].alias);	// create push alias
+	m_printf("APP[%s] push alias: %s\n",sn,otInfo[nPos].alias);
+//	DES_Encrypt(rid,(unsigned char *)KEY,decrypt,8);	// create push alias
+	memcpy(&pack[29],decrypt,8);
+	GetKey(&pack[37],buf,len);
+	_m_write(mfd,pack,38+APP_KEY_LEN);			 		// return mobile client
+
+	FreeRS(head);
+
+	if(stat == 0x01 || stat==0x0C)
+	{
+		atomic_inc(M_CON_NUM);
+		memset(sql,0x00,strlen(sql));
+		snprintf(sql,sizeof(sql),"insert into t_login_info (l_sn,l_user,l_date,l_time,l_id,l_stat,l_ip,l_app_ver) values ('%s','%s','%s','%s',seq_login.nextVal,'%d','%s','%d')",sn,LPak->user,date,tim,stat,mInfo[mfd].ip,LPak->version);
+		s_printf("Login info SQL: %s\n",sql);
+		cr = OciInsert(sql);
+		if(!cr)
+			lprintf(lfd, FATAL, "Mobile[%x]: Login insert login info failed!",LPak->version);
+		free(LPak);
+		return 1;
+	}
+	else
+	{
+		free(LPak);
+		return 0;
+	}
+}
+
+int mLoginBack(unsigned int stat,unsigned char *pack,unsigned char* id,unsigned char* lip)
+{
+	pack[0] = L_PACK_H;
+	pack[1] = 0x00;
+	pack[2] = 38+APP_KEY_LEN;
+	pack[3] = L_SER_VER>>8;
+	pack[4] = L_SER_VER&0xf;
+	pack[5] = (stat & 0xFF00) >> 8;
+	pack[6] = stat & 0xFF;
+	memcpy(&pack[7],id,8);
+	memcpy(&pack[15],lip,4);
+	pack[37+APP_KEY_LEN] = L_PACK_T;
+	return 1;
+}
+
+int ModProcess(int mfd,unsigned char* buf,int index,int len)
+{
+	int i,j;
+	int rb,cr,rs;
+	char result[16] = {0};
+	char sql[384] = { 0 };
+	char OldPasswd[33] = { 0 };
+	char NewPasswd[33] = { 0 };
+//	char user[17] = {0};
+	char phone[12] = { 0 };
+	unsigned int VerifCode = 0;
+	unsigned char temp[16] = { 0 };
+	unsigned char flag = 0;
+	unsigned char pack[14+APP_KEY_LEN] = { 0 };
+//	unsigned char decrypt[16] = { 0 };
+	LOGIN *LPak = (LOGIN *)malloc(sizeof(LOGIN));
+	memset(LPak,0x00,sizeof(LOGIN));
+
+	LPak->version = buf[3];
+	LPak->version <<= 8;
+	LPak->version += buf[4];
+
+	LPak->ctw = buf[5];
+	LPak->ctw <<= 8;
+	LPak->ctw += buf[6];
+
+	if(index == 0x09)		// password modify
+	{
+		memcpy(temp,&buf[7],8);
+		HexToString(LPak->user,temp,8);
+
+		memcpy(temp,&buf[15],16);
+		HexToString(OldPasswd,temp,16);
+
+		memcpy(temp,&buf[31],16);
+		HexToString(NewPasswd,temp,16);
+
+		memcpy(mInfo[mfd].aKey,&buf[47],APP_KEY_LEN);
+
+		snprintf(sql,sizeof(sql),"select count(r_id) from t_user_info where r_user='%s' and r_passwd='%s'",LPak->user,OldPasswd);
+
+		rs = CountCheck(oracle_env, sql, result);
+		if(rs == 1)
+		{
+			cr = (result[0])-48;
+			if(cr == 1)
+				rb = 0x10F;
+			else
+				rb = 0x10B;
+		}
+		else
+			rb = 0x106;
+	}
+	else			// password reset
+	{
+		for(i=0,j=7; i<6; i++)
+			temp[i] = buf[j++];
+		HexToString(phone,temp,6);
+
+		for(i=0; i<16; i++)
+			temp[i] = buf[j++];
+		HexToString(NewPasswd,temp,16);
+
+		flag = buf[j++];
+
+		for(i=0; i<3; i++)
+			temp[i] = buf[j++];
+		VerifCode = temp[0]*10000 + temp[1]*100 + temp[2];
+
+		index = GetHashTablePos(phone,SmsHash,SHI);
+
+		m_printf("VerifCode: %u\n",VerifCode);
+
+		if(sInfo[index].flag)		// have request verify code
+		{
+			if(sInfo[index].VerifCode == VerifCode)
+			{
+				snprintf(sql,sizeof(sql),"select count(r_id) from t_user_info where r_phone='%s'",phone);
+				rs = CountCheck(oracle_env, sql, result);
+				if(rs == 1)
+				{
+					cr = result[0] - 48;
+					if(cr == 1)
+					{
+						sInfo[index].VerifCode = 0;
+						sInfo[index].flag = 0;
+						rb = 0x10F;
+					}
+					else
+						rb = 0x10D;
+				}
+				else
+					rb = 0x106;
+			}
+			else
+				rb = 0x104;	// verify code error
+		}
+		else
+			rb = 0x104;
+	}
+
+	if(rb == 0x10F)					// select have result
+	{
+		memset(sql,0x00,384);
+		if(index == 0x09)
+		{
+			snprintf(sql,sizeof(sql),"UPDATE t_user_info SET r_passwd = '%s' WHERE r_user = '%s'",LPak->user,NewPasswd);
+		}
+		else
+		{
+			/*
+			MD5Init(&md5);
+			MD5Update(&md5,(unsigned char *)phone,12);
+			MD5Final(&md5,decrypt);
+			HexToString(OldPasswd,decrypt,16);
+			memcpy(user,&OldPasswd[7],16);
+#ifdef MDEBUG
+			printf("MD5 User: %s\n",user);
+#endif
+
+			if(flag == 1)
+				sprintf(sql,"UPDATE t_user_info SET r_user = '%s',r_passwd = '%s' WHERE r_phone = '%s'",user,NewPasswd,phone);
+			else
+*/
+			snprintf(sql,sizeof(sql),"UPDATE t_user_info SET r_passwd = '%s' WHERE r_phone = '%s'",NewPasswd,phone);
+		}
+
+		s_printf("MODIFY SQL: %s\n",sql);
+
+		if(!OciInsert(sql))
+			rb = 0x106;
+		else
+			rb = 0x10C;
+	}
+
+	free(LPak);
+	BackPacket(rb,pack,0,14+APP_KEY_LEN,0);
+	GetKey(&pack[13],buf,len);
+	if(!_m_write(mfd,pack,14+APP_KEY_LEN))				// modify back packet
+		return 2;
+	return 1;
+}
+
+int JsonCheck(int mfd,char *rid,int ffd,JSN code,int flag)
+{
+	char sql[256] = { 0 };
+	char name[37] = {0};
+	char abit[6] = {0};
+	char type[6] = {0};
+	char group[6] = {0};
+	char date[21] = {0};
+	char mac[17] = {0};
+	char child[6] = {0};
+	char state[6] = {0};
+	int len = 0;
+	unsigned char rs = 0;
+	unsigned char i,j;
+	cJSON *menu = NULL;
+	cJSON *sublevel = NULL;
+	cJSON *chdlevel = NULL;
+//	cJSON *root = NULL;
+
+	JST *jPtr = (JST *)malloc(sizeof(JST));
+	jPtr->ret = 0;
+
+	CHECK_DATA *head = (CHECK_DATA *) malloc(sizeof(CHECK_DATA));
+
+	switch(code)
+	{
+		case J_AR:
+		{
+			sprintf(sql,"select a_equ_name,a_bit_num,a_group,a_type,a_add_time from t_alarm_info where a_r_id = '%s'",rid);
+			rs = ExecSQL(head,sql);
+			s_printf("ALARM SQL: %s\n",sql);
+			menu = cJSON_CreateObject();
+			if (rs > 0)
+			{
+			//	cJSON_AddItemToObject(menu, "ALARM", root = cJSON_CreateObject());		// main group
+				if (head != NULL)
+				{
+					cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("200"));
+					cJSON_AddItemToObject(menu, "pid", sublevel = cJSON_CreateString("01"));
+					cJSON_AddItemToObject(menu, "method", sublevel = cJSON_CreateString("alarm"));
+					cJSON_AddItemToObject(menu, "result", sublevel = cJSON_CreateArray());
+					while (head->next != NULL)
+					{
+						i = j = 0;
+						head = head->next;
+						len = strlen(head->buf);
+						while (head->buf[j] != 0x01)
+						{
+							date[i++] = head->buf[j++];
+							if(i > 20)
+								break;
+						}
+						date[i] = '\0';
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							type[i++] = head->buf[j++];
+							if(i > 4)
+								break;
+						}
+						type[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							group[i++] = head->buf[j++];
+							if(i > 4)
+								break;
+						}
+						group[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							abit[i++] = head->buf[j++];
+							if(i > 5)
+								break;
+						}
+						abit[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							name[i++] = head->buf[j++];
+							if(i > 23)
+								break;
+						}
+						name[i] = '\0';
+
+						cJSON_AddItemToArray(sublevel, chdlevel = cJSON_CreateObject());
+						cJSON_AddStringToObject(chdlevel, "time", date);
+						cJSON_AddStringToObject(chdlevel, "type", type);// Create json
+						cJSON_AddStringToObject(chdlevel, "name", name);
+						cJSON_AddStringToObject(chdlevel, "bit", abit);
+						cJSON_AddStringToObject(chdlevel, "group",group);
+					}
+				}
+			}
+			else
+				cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("203"));
+			jPtr->str = cJSON_Print(menu);
+			break;
+		}
+		case J_SW:
+		{
+			sprintf(sql,"select S_NODE_ID,S_CHILD_ID,S_CHILD_NAME,S_CHILD_STAT from t_switch_info where S_NODE_RID = '%s'",rid);
+			rs = ExecSQL(head,sql);
+			menu = cJSON_CreateObject();
+			if (rs > 0)
+			{
+		//		cJSON_AddItemToObject(menu, "SWITCH", root = cJSON_CreateObject());		// main group
+				if (head != NULL)
+				{
+					cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("200"));
+					cJSON_AddItemToObject(menu, "pid", sublevel = cJSON_CreateString("02"));
+					cJSON_AddItemToObject(menu, "method", sublevel = cJSON_CreateString("switch"));
+					cJSON_AddItemToObject(menu, "result", sublevel = cJSON_CreateArray());
+					while (head->next != NULL)
+					{
+						i = j = 0;
+						head = head->next;
+
+						while (head->buf[j] != 0x01)
+						{
+							state[i++] = head->buf[j++];
+							if(i > 4)
+								break;
+						}
+						state[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							name[i++] = head->buf[j++];
+							if(i > 35)
+								break;
+						}
+						name[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							child[i++] = head->buf[j++];
+							if(i > 3)
+								break;
+						}
+						child[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							mac[i++] = head->buf[j++];
+							if(i > 15)
+								break;
+						}
+						mac[i] = '\0';
+
+						cJSON_AddItemToArray(sublevel, chdlevel = cJSON_CreateObject());
+						cJSON_AddStringToObject(chdlevel, "parent", mac);
+						cJSON_AddStringToObject(chdlevel, "child", child);	// Create json
+						cJSON_AddStringToObject(chdlevel, "name", name);
+						cJSON_AddStringToObject(chdlevel, "state", state);
+					}
+				}
+
+			}
+			else
+				cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("203"));
+			jPtr->str = cJSON_Print(menu);
+			break;
+		}
+		case J_IR:
+		{
+			sprintf(sql,"select IR_EQ_TYPE,IR_GROUP,IR_NAME from T_IR_INFO where IR_R_ID = '%s'",rid);
+			rs = ExecSQL(head,sql);
+			menu = cJSON_CreateObject();
+			if (rs > 0)
+			{
+				//cJSON_AddItemToObject(menu, "IR", root = cJSON_CreateObject());		// main group
+				if (head != NULL)
+				{
+					cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("200"));
+					cJSON_AddItemToObject(menu, "pid", sublevel = cJSON_CreateString("03"));
+					cJSON_AddItemToObject(menu, "method", sublevel = cJSON_CreateString("ir"));
+					cJSON_AddItemToObject(menu, "result", sublevel = cJSON_CreateArray());
+					while (head->next != NULL)
+					{
+						i = j = 0;
+						head = head->next;
+
+						while (head->buf[j] != 0x01)
+						{
+							name[i++] = head->buf[j++];
+							if(i > 35)
+								break;
+						}
+						name[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							group[i++] = head->buf[j++];
+							if(i > 3)
+								break;
+						}
+						group[i] = '\0';
+
+						++j;
+						i = 0;
+						while (head->buf[j] != 0x01)
+						{
+							type[i++] = head->buf[j++];
+							if(i > 5)
+								break;
+						}
+						type[i] = '\0';
+
+						cJSON_AddItemToArray(sublevel, chdlevel = cJSON_CreateObject());
+						cJSON_AddStringToObject(chdlevel, "itype", type);
+						cJSON_AddStringToObject(chdlevel, "ctype", "0");// Create json
+						cJSON_AddStringToObject(chdlevel, "group", group);
+						cJSON_AddStringToObject(chdlevel, "name",name);
+					}
+				}
+			}
+			else
+				cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("203"));
+			jPtr->str = cJSON_Print(menu);
+			break;
+		}
+		default:
+			menu = cJSON_CreateObject();
+			cJSON_AddItemToObject(menu, "status", sublevel = cJSON_CreateString("202"));
+			jPtr->str = cJSON_Print(menu);
+			break;
+	}
+
+//	r_printf("JSON-ALARM: %s \n",jPtr->str);
+	int mNum = 0;
+	int nPos = 0;
+	nPos = GetHashTablePos(rid, RidHash, MHI);
+//	r_printf("Json push alias: %s\n",rInfo[hInfo[nPos].rhiv].alias);
+	switch(flag)
+	{
+	case 1:
+		_m_write(ffd,jPtr->str,strlen(jPtr->str));		// write temp file
+		break;
+	case 0:
+	{
+		iconv_t cd;
+		size_t sLen = strlen(jPtr->str);
+		size_t dLen = strlen(jPtr->str)*2;
+		char *inbuf = jPtr->str;
+		char *temp = (char *)malloc(sizeof(char)*dLen);
+		char *outbuf = temp;
+		if ((iconv_t)-1 == (cd=iconv_open("UTF-8","GBK")))
+			lprintf(lfd, FATAL, "Iconv: Json code library open failed!");
+		else
+		{
+			if(iconv(cd, &inbuf, &sLen, &outbuf, &dLen) == -1)
+			{
+//				fprintf(stderr,"Error:%s\a\n",strerror(errno));
+				lprintf(lfd, FATAL, "Iconv: Json code convert failed!");
+			}
+			else
+				PushMessage(rInfo[hInfo[nPos].rhiv].alias,temp,0);
+			iconv_close(cd);
+		}
+		free(temp);
+		break;
+	}
+	case 2:
+		mNum = GetMfdNum(nPos);
+		for (i = 0; i < mNum; i++)			// back state to user that all client
+			// JsonCheck(hInfo[nPos].mhiv[i],rid,0,code,flag);
+			PushMessage(rInfo[mInfo[hInfo[nPos].mhiv[i]].hiv].alias,jPtr->str,0);
+		break;
+	case 3:
+	{
+		switch(code)
+		{
+		case J_SW:
+		//	PushMessage(rInfo[hInfo[nPos].rhiv].alias,"switch",0);
+			PushMessageV3(0,3,rInfo[hInfo[nPos].rhiv].alias,"",0);
+			break;
+		case J_IR:
+		//	PushMessage(rInfo[hInfo[nPos].rhiv].alias,"ir",0);
+			PushMessageV3(0,1,rInfo[hInfo[nPos].rhiv].alias,"",0);
+			break;
+		case J_AR:
+		//	PushMessage(rInfo[hInfo[nPos].rhiv].alias,"alarm",0);
+			PushMessageV3(0,2,rInfo[hInfo[nPos].rhiv].alias,"",0);
+			break;
+		default:
+			break;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+	cJSON_Delete(menu);
+	free(jPtr);
+	FreeRS(head);
+	return 1;
+}

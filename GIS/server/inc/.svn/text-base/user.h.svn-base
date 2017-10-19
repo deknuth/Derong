@@ -1,0 +1,68 @@
+#ifndef USER_H_
+#define USER_H_
+
+#define L_PACK_H 0xFD
+#define	L_SER_VER 0x101
+#define L_PACK_T 0xFF
+
+#define	L_OK	0x01
+#define	L_INFO_ERR	0x02
+#define L_TIME_ERR	0x03
+#define L_VER_OLD	0x04
+#define L_TIMEOUT	0x05
+#define	L_PACK_ERR	0x06
+#define	L_IP_ERR	0x07
+#define	L_ILL		0x08p
+#define	L_REP		0x09
+#define L_ACC_ARR	0x0A
+#define L_BLK_LIST	0x0B
+#define L_BOT_OL	0x0C
+#define L_BOT_GRPS	0x0D
+#define MUN	10				// max user number
+
+
+typedef struct lg{		// 登录结构
+	int version;		//
+	int ctw;			//
+	int index;			//
+	char user[17];
+	char passwd[33];
+}LOGIN;
+
+typedef struct re{
+	int version;		//
+	int ctw;			//
+	char user[17];		//	用户
+	char passwd[33];	//	密码
+	char phone[13];	//	手机号
+	char sn[17];		//	id
+	char date[13];		//	注册日期
+}REG;
+
+typedef struct li{			// 用户登录信息结构
+	int i_stat;
+	unsigned char i_id[16];
+	unsigned char i_user[16];
+	unsigned char i_date[12];
+	unsigned char i_phone[MUN][12];
+}LINFO;
+
+typedef struct pp{
+	char *str;
+	unsigned char ret;
+}JST;
+
+typedef enum{
+	J_SW = 0x04,		// switch
+	J_AR = 0x05,		// alarm
+	J_IR = 0x06,		// IR
+}JSN;
+
+extern int mLoginProcess(int mfd,unsigned char* buf,int len);
+extern int ModProcess(int mfd,unsigned char* buf,int index,int len);
+extern int BackPacket(unsigned int stat,unsigned char* pack,int type,unsigned int len,int index);
+extern int RegProcess(int mfd,unsigned char* rBuf,int len);
+extern int MobileAlive(int mfd,unsigned char *buf,int len);
+extern int JsonCheck(int mfd,char *rid,int ffd,JSN code,int flag);
+
+#endif

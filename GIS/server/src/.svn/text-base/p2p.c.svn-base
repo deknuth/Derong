@@ -1,0 +1,460 @@
+/*
+ * p2p.c
+ *
+ *  Created on: 2016年8月17日
+ *      Author: Administrator
+ */
+#include "../inc/main.h"
+static void UdpProcess(int ufd);
+static void CreatPack(unsigned char *pack, unsigned char len);
+static void CreatIP(unsigned char *pack, unsigned long ip);
+static void CreatPort(unsigned char *pack, unsigned int port);
+static int ForwardMode(int ufd);
+static int UDPAccept(int ufd,struct sockaddr_in ser_addr);
+
+int ClientP2P(char *ip)
+{
+	int sock;
+    struct sockaddr_in serv_addr;
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1)
+	{
+        lprintf(lfd, FATAL, "P2P[%d]: connect to server failed!\n",errno);
+		return 0;
+	}
+    memset(&serv_addr, 0, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = inet_addr(ip);
+    serv_addr.sin_port = htons(P2P_SERVER_PORT);
+
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+	{
+    	lprintf(lfd, FATAL, "P2P[%d]: connect to server failed!\n",errno);
+		return 0;
+	}
+	else
+		return sock;
+}
+
+void *UdpServer(void *arg)
+{
+	int sockfd,ukdpfd, nfds, n;
+	struct epoll_event uev;
+	struct epoll_event uevents[MAXEPOLLSIZE];
+	struct sockaddr_in ser_addr;
+	socklen_t len = sizeof(struct sockaddr_in);
+
+	if ((sockfd = socket(PF_INET, SOCK_DGRAM, 0)) == -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: UDP socket create failed!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Kernel: UDP socket create success!");
+	setnonblocking(sockfd);
+	bzero(&ser_addr, sizeof(long));
+	ser_addr.sin_family = PF_INET;
+	ser_addr.sin_port = htons((uint16_t) atoi(arg));
+	ser_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(sockfd, (struct sockaddr *) &ser_addr, len) == -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: UDP bind Failed!");
+		exit(1);
+	}
+	else
+		lprintf(lfd, INFO, "Kernel: UDP ip address and port listen success!");
+
+	ukdpfd = epoll_create(MAXEPOLLSIZE);// 创建 epoll 句柄，把监听 socket 加入到 epoll 集合里
+	uev.events = EPOLLIN | EPOLLET;
+	uev.data.fd = sockfd;
+	if (epoll_ctl(ukdpfd, EPOLL_CTL_ADD, sockfd, &uev) < 0)
+	{
+		lprintf(lfd, FATAL, "Kernel: UDP file handle EPOLL_CTL error", sockfd);
+		exit(0);
+	}
+	else
+		lprintf(lfd, INFO, "Kernel: UDP listen socket join EPOLL success!");
+	while (1)
+	{
+		//	sem_wait(&sem_udp); // 将udp值-1
+		nfds = epoll_wait(ukdpfd, uevents, MAXEPOLLSIZE, 1);	// 等待有事件发生
+		if (nfds == -1)
+		{
+			lprintf(lfd, FATAL, "Kernel: UDP epoll_wait failed!");
+			break;
+		}
+		for (n = 0; n < nfds; ++n)	// 处理所有事件
+		{
+			if (uevents[n].data.fd == sockfd)
+			{
+				int ufd;
+				if((ufd = UDPAccept(sockfd,ser_addr)) > 0)
+				{
+					struct epoll_event child_ev;
+					child_ev.events = EPOLLIN | EPOLLET;
+					child_ev.data.fd = ufd;
+					if (epoll_ctl(ukdpfd, EPOLL_CTL_ADD, ufd, &child_ev) < 0)
+						lprintf(lfd, FATAL, "UDP: EPOLL_CTL_ADD error!");
+				}
+			}
+			else
+				tpool_add_work(pool, UdpProcess, uevents[n].data.fd);// 添加工作线程
+		}
+		//	sem_post(&sem_tp); 	// 将udp值加+1
+		//	sem_post(&sem_mtp); // 将udp值加+1
+	}
+	close(sockfd);
+	return (0);
+}
+
+int UDPAccept(int ufd,struct sockaddr_in ser_addr)
+{
+	int index,rLen,new_ufd;
+	char id[9] = { 0 };
+	unsigned char rBuf[1480] = { 0 };
+	unsigned char key[8] = { 0 };
+	unsigned char pack[23] = { 0 };
+	unsigned char bPack[10] = { 0xfd,0x00,0x0a,0x00,0x00,0x07,0x07,0xff,0xff,0xff };
+	unsigned int version, stat;
+	struct sockaddr_in cli_addr;
+	struct sockaddr_in to_addr;
+	socklen_t len = sizeof(struct sockaddr_in);
+	while(1)
+	{
+		rLen = recvfrom(ufd, rBuf, sizeof(rBuf), 0, (struct sockaddr *) &cli_addr,&len);	// fisrt;
+		if(rLen > 0)
+		{
+			u_printf("Accept receive from: %s:%d ,%d  bytes %d\n", inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port), rLen, ufd);
+			if (rLen == 16 || rLen == 24)
+			{
+				if (rBuf[0] == 0xFE && rBuf[rLen - 1] == 0xFF)
+				{
+					version = (unsigned int) rBuf[3];
+					version <<= 8;
+					version += (unsigned int) rBuf[4];
+
+					stat = (unsigned int) rBuf[5];
+					stat <<= 8;
+					stat += (unsigned int) rBuf[6];
+
+					memcpy(id, &rBuf[7], 8);
+
+					u_printf("p2p stat: %x\n", stat);
+					u_printf("recv md5: %02X%02X%02X%02X%02X%02X%02X%02X\n", id[0], id[1],id[2], id[3], id[4], id[5], id[6], id[7]);
+
+					if (stat == 0x501)
+					{
+						index = GetHashTablePos(id, P2PHash, MAX_REC);
+						if (index > 0)
+						{
+							if (version == 0x2001 && rLen == 24)		// app
+							{
+								uInfo[index].aIp = cli_addr.sin_addr.s_addr;
+								uInfo[index].aPort = cli_addr.sin_port;
+								uInfo[index].aBit = 1;
+								memcpy(key, &rBuf[15], 8);
+							}
+							else if (rLen == 16)
+							{
+								uInfo[index].rIp = cli_addr.sin_addr.s_addr;
+								uInfo[index].rPort = cli_addr.sin_port;
+								uInfo[index].rBit = 1;
+								//			printf(NIPQUAD_FMT, NIPQUAD(uInfo[index].rIp));
+							}
+
+							sem_wait(&sem_p2p);
+							if (uInfo[index].aBit && uInfo[index].rBit)	// app and robot 连上了
+							{
+								// P2P
+								CreatPack(pack, 22);
+								CreatIP(pack, uInfo[index].rIp);
+								CreatPort(pack, uInfo[index].rPort);
+								memcpy(&pack[13], key, 8);
+
+								cli_addr.sin_port = uInfo[index].aPort;
+								cli_addr.sin_addr.s_addr = uInfo[index].aIp;
+								u_printf("send robot info to app PORT: %d\tIP: ",ntohs(uInfo[index].rPort));
+								printf(NIPQUAD_FMT, NIPQUAD(uInfo[index].rIp));
+								printf("\n");
+								sendto(ufd, pack, 22, 0, (struct sockaddr *) &cli_addr,len);
+
+								memset(pack, 0x00, 22);
+								CreatPack(pack, 14);
+								CreatIP(pack, uInfo[index].aIp);
+								CreatPort(pack, uInfo[index].aPort);
+
+								cli_addr.sin_port = uInfo[index].rPort;
+								cli_addr.sin_addr.s_addr = uInfo[index].rIp;
+								u_printf("send app info to robot PORT: %d\tIP: ",ntohs(uInfo[index].aPort));
+								printf(NIPQUAD_FMT, NIPQUAD(uInfo[index].aIp));
+								printf("\n");
+								sendto(ufd, pack, 14, 0, (struct sockaddr *) &cli_addr,len);
+								uInfo[index].aBit = uInfo[index].rBit = 0;
+
+							}
+							sem_post(&sem_p2p);
+						}
+					}
+					else if (stat == 0x505)		// 转发
+					{
+						if ((index = GetHashTablePos(id, P2PHash, MAX_REC)) > 0)		// 已请求
+						{
+							if((new_ufd = socket(PF_INET, SOCK_DGRAM, 0)) == -1)
+							{
+								lprintf(lfd, FATAL, "UDP: udp socket fialed!");
+								return 0;
+							}
+							setnonblocking(new_ufd);
+							if(bind(new_ufd,(struct sockaddr *) &ser_addr, sizeof(struct sockaddr)) == -1)
+							{
+								lprintf(lfd, FATAL, "UDP: udp bind fialed!");
+								return 0;
+							}
+							cli_addr.sin_family = PF_INET;
+							u_printf("udp new fd: %d\n",new_ufd);
+
+							if(connect(new_ufd, (struct sockaddr *) &cli_addr, len) == -1)
+							{
+								lprintf(lfd, FATAL, "UDP: udp bind fialed!");
+								return 0;
+							}
+							ucInfo[new_ufd].p2p_index = index;
+							ucInfo[new_ufd].ufd = new_ufd;
+							if(version==0x2001 && rLen==24)		// app to robot
+							{
+								uInfo[index].stat |= 1;
+								ucInfo[new_ufd].mode = 1;
+							}
+							else
+							{
+								uInfo[index].stat |= 2;
+								ucInfo[new_ufd].mode = 2;
+							}
+
+							if(uInfo[index].stat == 3)		// 转发确认
+							{
+								to_addr.sin_port = uInfo[index].aPort;
+								to_addr.sin_addr.s_addr = uInfo[index].aIp;
+								sendto(ufd, bPack, 10, 0, (struct sockaddr *) &to_addr, len);
+
+								to_addr.sin_port = uInfo[index].rPort;
+								to_addr.sin_addr.s_addr = uInfo[index].rIp;
+								sendto(ufd, bPack, 10, 0, (struct sockaddr *) &to_addr, len);
+							}
+							return new_ufd;
+						}
+						else
+							return 0;
+					}
+					else
+						return 0;
+				}
+				else
+					return 0;
+			}
+		}
+//		else if (rLen == -1 && errno == EAGAIN)
+//			continue;
+		else
+			break;
+	}
+	return 0;
+}
+
+void UdpProcess(int ufd)	// UDP logic processing
+{
+	int rLen;
+	struct sockaddr_in cli_addr;
+	struct sockaddr_in to_addr;
+	unsigned char rBuf[1480] ={ 0 };
+	unsigned int forward = 0;
+	socklen_t len = sizeof(struct sockaddr_in);
+
+	while(1)
+	{
+		rLen = recvfrom(ufd, rBuf, sizeof(rBuf), 0, (struct sockaddr *) &cli_addr,&len);
+		if (rLen > 0)
+		{
+			forward = ForwardMode(ufd);
+			if(forward)
+			{
+				if(ucInfo[ufd].mode == 1)		// app->robot
+				{
+					u_printf("app receive from: %s:%d ,%d  bytes %d\n", inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port), rLen, ufd);
+					to_addr.sin_port = uInfo[forward].rPort;
+					to_addr.sin_addr.s_addr = uInfo[forward].rIp;
+				}
+				else if(ucInfo[ufd].mode == 2)
+				{
+					u_printf("robot receive from: %s:%d ,%d  bytes %d\n", inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port), rLen, ufd);
+					to_addr.sin_port = uInfo[forward].aPort;
+					to_addr.sin_addr.s_addr = uInfo[forward].aIp;
+				}
+				else
+					u_printf("uInfo[forward].mode :%d\n",ucInfo[ufd].mode);
+				sendto(ufd, rBuf, rLen, 0, (struct sockaddr *) &to_addr, len);
+				while (1)
+				{
+					rLen = recvfrom(ufd, rBuf, sizeof(rBuf), 0,(struct sockaddr *) &cli_addr, &len);
+					if (rLen > 0)
+					{
+						u_printf("foward[%d]: %s\t%d\t%d\n",ufd,inet_ntoa(to_addr.sin_addr),ntohs(to_addr.sin_port),rLen);
+						u_printf("video forward size: %d\n",rLen);
+						sendto(ufd, rBuf, rLen, 0, (struct sockaddr *) &to_addr,len);
+						ucInfo[ufd].cfm++;
+					}
+					else if (rLen == -1 && errno == EINTR)
+						continue;
+					else	// normal exit
+					{
+		//				gettimeofday(&ntime, NULL);
+		//				ip_index = GetHashTablePos(inet_ntoa(cli_addr.sin_addr),UDPHash, SHI);
+		//				printf("IP_INDEX: %d\n", ip_index);
+		//				ucInfo[ip_index].cntime = ntime.tv_sec;
+		//				ucInfo[ip_index].cfm = 1;
+	//					perror("err:");
+						goto END;
+					}
+				}
+			}
+		}
+		else
+		{
+			END:
+			break;
+		}
+	}
+}
+
+int ForwardMode(int ufd)
+{
+	unsigned int index;
+	index = ucInfo[ufd].p2p_index;
+//	u_printf("forward index: %d\n",index);
+	if(index)
+	{
+		if(ucInfo[ufd].mode)		// 转发
+		{
+			ucInfo[ufd].cfm = ucInfo[ufd].last_cfm = 0;
+			return index;
+		}
+	}
+	return 0;
+}
+
+void CreatPack(unsigned char *pack, unsigned char len)
+{
+	pack[0] = 0xFD;
+	pack[1] = 0x00;
+	pack[2] = len;
+	pack[5] = 0x07;
+	pack[6] = 0x01;
+	pack[len - 1] = 0xFF;
+}
+
+void CreatIP(unsigned char *pack, unsigned long ip)
+{
+	pack[7] = ip & 0xFF;
+	pack[8] = ((ip & 0xFF00) >> 8);
+	pack[9] = ((ip & 0xFF0000) >> 16);
+	pack[10] = ((ip & 0xFF000000) >> 24);
+}
+
+void CreatPort(unsigned char *pack, unsigned int port)
+{
+	unsigned int temp = ntohs(port);
+	pack[12] = temp & 0xFF;
+	pack[11] = ((temp & 0xFF00) >> 8);
+}
+
+void RealVideoReq(int mfd, int len, unsigned char* pack)
+{
+	MD5_CTX ctx;
+	int index = 0;
+	unsigned char buf[22+APP_KEY_LEN] = {0};
+	unsigned char md5Value[16] = { 0 };
+	char temp[8] = { 0 };
+	MD5Update(&ctx, (unsigned char *) mInfo[mfd].id, 16);
+	MD5Final(&ctx, md5Value);
+	memcpy(temp, &md5Value[4], 8);
+	memcpy(&pack[7], temp, 8);			// 16bit md5
+
+	m_printf("Video md5: %02X%02X%02X%02X%02X%02X%02X%02X\n", temp[0], temp[1],temp[2], temp[3], temp[4], temp[5], temp[6], temp[7]);
+	if(ProtForward(mfd, pack, len) == 0)		// forward failed
+	{
+		GetKey(mInfo[mfd].aKey, pack, len);
+		mSynPack(mfd,buf,22+APP_KEY_LEN);
+		buf[5] = 0x07;
+		buf[6] = 0x00;
+		_m_write(mfd,buf,22+APP_KEY_LEN);
+	}
+	else
+	{
+		buf[0] = 0xFE;
+		buf[2] = 0x0C;
+		memcpy(&buf[3], temp, 8);
+		buf[11] = 0xFF;
+		r_printf("p2p a sfd: %d\n",p2p_sfd);
+	    if(_write(p2p_sfd, buf, 12) == 0)
+	    {
+	    	p2p_sfd = ClientP2P(P2P_SERVER_IP);
+	    	r_printf("p2p b sfd: %d\n",p2p_sfd);
+	    	_write(p2p_sfd, buf, 12);
+	    }
+		if (GetHashTablePos(temp, P2PHash, MAX_REC) == 0)
+		{
+			index = InsertHash(temp, P2PHash, MAX_REC);
+			m_printf("video md5 index: %d\n",index);
+			memcpy(uInfo[index].id, temp, 8);
+		}
+		else
+		{
+			;
+		}
+	}
+}
+
+void *UClientManage(void *arg)			// udp client manage
+{
+	struct timespec sleeptm;
+	int index, i = 0;
+	sleeptm.tv_sec = 5;
+	sleeptm.tv_nsec = 0;
+	while (1)
+	{
+		for(i = 0; i < MAX_REC; i++)
+		{
+			if(ucInfo[i].ufd)
+			{
+				if(ucInfo[i].last_cfm == ucInfo[i].cfm)
+				{
+					if(ucInfo[i].count == 100)		// timeout 20s
+					{
+						lprintf(lfd, FATAL, "UDP[%d]: udp close!",ucInfo[i].ufd);
+						index = ucInfo[i].p2p_index;
+						ucInfo[i].mode = 0;
+						ucInfo[i].p2p_index = 0;
+						memset(uInfo[index].id, 0x00, 8);
+						uInfo[index].stat = 0;
+						ucInfo[i].count = 0;
+						ucInfo[i].last_cfm = ucInfo[i].cfm = 0;
+						close(ucInfo[i].ufd);
+						ucInfo[i].ufd = 0;
+						DelHashTablePos(uInfo[index].id, P2PHash, MAX_REC);
+						u_printf("Close UDP client!\n");
+					}
+					else
+						ucInfo[i].count++;
+				}
+				else
+				{
+					if(ucInfo[i].cfm > 0xFFFFFFFB)
+						ucInfo[i].cfm = 0;
+					ucInfo[i].last_cfm = ucInfo[i].cfm;
+				}
+			}
+
+		}
+		nanosleep(&sleeptm, NULL);
+	}
+}

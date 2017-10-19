@@ -1,0 +1,173 @@
+/*
+ * alarm.c
+ *
+ *  Created on: 2016年3月24日
+ *      Author: Administrator
+ */
+
+#include "../inc/main.h"
+#include "../inc/alarm.h"
+char rTimes[15] = { 0 };
+static int AlarmSetBack(unsigned int stat,unsigned int sbit, unsigned char* pack, unsigned char len);
+
+int AInfoCheck(int rfd)	// alarm info check
+{
+	int rs = 0,pos,sbit,bit;
+	char sql[128] = {0};
+	char temp[6] = {0};
+	const char pattern[2] = {0x01};
+	char *p = NULL;
+	snprintf(sql,sizeof(sql),"select a_equ_name,a_bit_num from t_alarm_info where a_r_id = '%s'",rInfo[rfd].id);
+	CHECK_DATA *head = (CHECK_DATA *)malloc(sizeof(CHECK_DATA));
+	memset(head , 0x00, sizeof(CHECK_DATA));
+	sem_wait(&sem_or);
+	rs = OciCheck(sql,head);
+	sem_post(&sem_or);
+	if(rs != -1)
+	{
+		if(head != NULL)
+		{
+			if(rs > 0)		// Multiple row
+			{
+				while (head->next != NULL)
+				{
+					memset(temp,0x00,6);
+					head = head->next;
+					p = head->buf;
+					pos = kmp(p,pattern);
+					if((pos!=-1) && (pos<6))
+					{
+						memcpy(temp,p,pos);
+						sbit = atoi(temp);
+						p += pos+1;
+						bit = GetBit(sbit);
+						if(bit != -1)
+						{
+							memcpy(rInfo[rfd].aInfo.name[bit],p,strlen(p));
+							CodeConv(rInfo[rfd].aInfo.name[bit],rInfo[rfd].aInfo.name_utf8[bit],"gbk","utf-8");
+						}
+					}
+				}
+			}
+		}
+	}
+	else
+		lprintf(lfd, FATAL, "Watch: OCI check and watch id update failed!");
+
+	FreeRS(head);
+	return 1;
+}
+
+int AlarmInfo(int rfd, unsigned char* rBuf)
+{
+	unsigned int rb = 0,bit;
+	unsigned char pack[10] = { 0 };
+	unsigned int sBit = 0;
+	char name[24] = { 0 };
+	char uName[48] = { 0 };	// UTF-8
+	char sql[1024] = { 0 };
+
+	rb = rBuf[5];
+	rb <<= 8;
+	rb += rBuf[6];
+	sBit = (rBuf[7] << 8) + rBuf[8];
+	memcpy(name, &rBuf[9], 24);
+
+	if(0x900 == rb)
+	{
+		if(CodeConv(name,uName,"utf-8","gbk") == 0)
+			rb = 0x9A1;
+		else
+		{
+			snprintf(sql,sizeof(sql),
+						"merge into t_alarm_info t1 using(SELECT '%s' a_equ_name, '%s' a_r_id, %d a_bit_num from dual) t2\
+						on (t1.a_bit_num = t2.a_bit_num AND t1.a_r_id = t2.a_r_id)\
+						when matched then\
+						update SET t1.a_equ_name = t2.a_equ_name,t1.a_add_time=to_char(sysdate,'yyyy-mm-dd hh24:mi:ss')\
+						when not matched then\
+						insert (a_equ_name,a_r_id,a_bit_num,a_add_time,a_id) values ('%s','%s',%d,to_char(sysdate,'yyyy-mm-dd hh24:mi:ss'),seq_alarm_info.nextVal)",
+						uName, rInfo[rfd].id, sBit, uName, rInfo[rfd].id, sBit);
+			rb = OciInsert(sql)?0x9A0:0x9A1;
+			if(rb == 0x9A0)
+			{
+				bit = GetBit(sBit);
+				if(bit != -1)
+				{
+					memset(rInfo[rfd].aInfo.name[bit],0x00,128);
+					memcpy(rInfo[rfd].aInfo.name[bit],uName,strlen(uName));
+				}
+			}
+			mBackJson(rInfo[rfd].id,J_AR,3);
+		}
+	}
+	else if(0x90F == rb)
+	{
+		if(sBit == 0xFFFF)
+			snprintf(sql,sizeof(sql),"DELETE FROM t_alarm_info WHERE A_R_ID = '%s'",rInfo[rfd].id);
+		else
+			snprintf(sql,sizeof(sql),"DELETE FROM t_alarm_info WHERE A_R_ID = '%s' and A_BIT_NUM = %d",rInfo[rfd].id,sBit);
+		rb = OciInsert(sql)?0x9A0:0x9A1;
+		mBackJson(rInfo[rfd].id,J_AR,3);
+	}
+	else
+		rb = 0x9A1;
+
+	s_printf("Alarm SQL: %s\n", sql);
+	AlarmSetBack(rb,sBit, pack, 10);
+	if(_write(rfd, pack, 10))
+		lprintf(lfd, INFO, "Robot: Alarm equipment setting success!");
+	return rb;
+}
+
+int rAlarmBack(int rfd, unsigned char* rBuf, unsigned char len)	// robot alarm back
+{
+	char sql[384] = {0};
+	int sBit = 0,bit;
+	char cst[64] = {0};
+    char cst_utf8[64] = {"不明位置安防设备警报!"};
+	CodeConv(cst_utf8,cst,"utf-8","gbk");
+	sBit = (rBuf[7]<<8) + rBuf[8];
+	gtime(rTimes);
+	snprintf( sql,sizeof(sql),
+			"insert into t_alarm_rec (al_time,al_r_id,al_type,al_bit_num,al_id) values ('%s','%s','%d','%d',seq_alarm_rec.nextVal)",
+			rTimes,rInfo[rfd].id,0,sBit);
+
+	s_printf("ALARM REC SQL:%s\n",sql);
+
+	OciInsert(sql);
+	mBackStat(rInfo[rfd].id,rBuf,len);		// back to all online APP
+//	r_printf("back phone: %s\n",rInfo[rfd].mPhone);
+	bit = GetBit(sBit);
+	if(strlen(rInfo[rfd].mPhone) == 11)		// back to main user phone
+	{
+		if(bit != -1)
+			SendMSG(1,rInfo[rfd].aInfo.name[bit],rInfo[rfd].mPhone);
+		else
+			SendMSG(1,cst,rInfo[rfd].mPhone);
+	}
+
+	if(bit != -1)
+	{
+		PushMessageV3(1,2,rInfo[rfd].alias,rInfo[rfd].aInfo.name_utf8[bit],bit);
+	//	 PushMessage(rInfo[rfd].alias,rInfo[rfd].aInfo.name_utf8[bit],1);
+	}
+	else
+		PushMessageV3(0,2,rInfo[rfd].alias,cst_utf8,0);
+	//	PushMessage(rInfo[rfd].alias,cst_utf8,1);
+	return 1;
+}
+
+int AlarmSetBack(unsigned int stat,unsigned int sbit, unsigned char* pack, unsigned char len)
+{
+	pack[0] = 0xfd;
+	pack[1] = (len & 0xFF00) >> 8;
+	pack[2] = len & 0xFF;
+	pack[3] = UFP->version[0];
+	pack[4] = UFP->version[1];
+	pack[5] = stat >> 8;
+	pack[6] = stat & 0xFF;
+	pack[7] = sbit >> 8;
+    pack[8] = sbit & 0xFF;
+	pack[len-1] = 0xff;
+	return 1;
+}

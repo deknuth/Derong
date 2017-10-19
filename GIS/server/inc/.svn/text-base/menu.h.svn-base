@@ -1,0 +1,15 @@
+/*
+ * menu.h
+ *
+ *  Created on: 2015年1月19日
+ *      Author: Lovenix
+ */
+
+#ifndef MENU_H_
+#define MENU_H_
+#define MML	20		// max menu level
+#define MNL	64		// menu name length
+extern char* CheckMenu(char* user,char* mac);
+
+#endif /* MENU_H_ */
+
