@@ -1,0 +1,268 @@
+   1               		.file	"kmp.c"
+   2               	__SREG__ = 0x3f
+   3               	__SP_H__ = 0x3e
+   4               	__SP_L__ = 0x3d
+   5               	__CCP__  = 0x34
+   6               	__tmp_reg__ = 0
+   7               	__zero_reg__ = 1
+  15               	.Ltext0:
+  16               	.global	kmp
+  18               	kmp:
+  19               	.LFB8:
+  20               	.LM1:
+  21               	.LVL0:
+  22 0000 CF92      		push r12
+  23 0002 DF92      		push r13
+  24 0004 EF92      		push r14
+  25 0006 FF92      		push r15
+  26 0008 0F93      		push r16
+  27 000a 1F93      		push r17
+  28 000c CF93      		push r28
+  29 000e DF93      		push r29
+  30               	/* prologue: function */
+  31               	/* frame size = 0 */
+  32 0010 6C01      		movw r12,r24
+  33 0012 7B01      		movw r14,r22
+  34               	.LM2:
+  35 0014 0097      		sbiw r24,0
+  36 0016 01F4      		brne .+2
+  37 0018 00C0      		rjmp .L2
+  38               	.LVL1:
+  39 001a 6115      		cp r22,__zero_reg__
+  40 001c 7105      		cpc r23,__zero_reg__
+  41 001e 01F4      		brne .+2
+  42 0020 00C0      		rjmp .L2
+  43               	.LVL2:
+  44 0022 FB01      		movw r30,r22
+  45 0024 8081      		ld r24,Z
+  46               	.LVL3:
+  47 0026 8823      		tst r24
+  48 0028 01F4      		brne .+2
+  49 002a 00C0      		rjmp .L2
+  50 002c F601      		movw r30,r12
+  51 002e 8081      		ld r24,Z
+  52 0030 8823      		tst r24
+  53 0032 01F4      		brne .+2
+  54 0034 00C0      		rjmp .L2
+  55 0036 FB01      		movw r30,r22
+  56               	.LVL4:
+  57 0038 20E0      		ldi r18,lo8(0)
+  58 003a 30E0      		ldi r19,hi8(0)
+  59               	.LVL5:
+  60               	.L3:
+  61               	.LM3:
+  62 003c 8191      		ld r24,Z+
+  63 003e 2F5F      		subi r18,lo8(-(1))
+  64 0040 3F4F      		sbci r19,hi8(-(1))
+  65               	.LVL6:
+  66 0042 8823      		tst r24
+  67 0044 01F4      		brne .L3
+  68               	.LM4:
+  69 0046 C901      		movw r24,r18
+  70 0048 880F      		lsl r24
+  71 004a 991F      		rol r25
+  72 004c 0E94 0000 		call malloc
+  73               	.LVL7:
+  74 0050 AC01      		movw r20,r24
+  75               	.LBB4:
+  76               	.LBB5:
+  77               	.LM5:
+  78 0052 8FEF      		ldi r24,lo8(-1)
+  79 0054 9FEF      		ldi r25,hi8(-1)
+  80 0056 FA01      		movw r30,r20
+  81               	.LVL8:
+  82 0058 9183      		std Z+1,r25
+  83 005a 8083      		st Z,r24
+  84 005c 2FEF      		ldi r18,lo8(-1)
+  85 005e 3FEF      		ldi r19,hi8(-1)
+  86               	.LVL9:
+  87 0060 60E0      		ldi r22,lo8(0)
+  88 0062 70E0      		ldi r23,hi8(0)
+  89               	.LVL10:
+  90 0064 00C0      		rjmp .L17
+  91               	.L9:
+  92               	.LM6:
+  93 0066 FFEF      		ldi r31,hi8(-1)
+  94 0068 2F3F      		cpi r18,lo8(-1)
+  95 006a 3F07      		cpc r19,r31
+  96 006c 01F0      		breq .L6
+  97 006e F701      		movw r30,r14
+  98 0070 E20F      		add r30,r18
+  99 0072 F31F      		adc r31,r19
+ 100 0074 8081      		ld r24,Z
+ 101 0076 9817      		cp r25,r24
+ 102 0078 01F4      		brne .L7
+ 103               	.L6:
+ 104               	.LM7:
+ 105 007a 6F5F      		subi r22,lo8(-(1))
+ 106 007c 7F4F      		sbci r23,hi8(-(1))
+ 107               	.LM8:
+ 108 007e 2F5F      		subi r18,lo8(-(1))
+ 109 0080 3F4F      		sbci r19,hi8(-(1))
+ 110               	.LM9:
+ 111 0082 F701      		movw r30,r14
+ 112 0084 E60F      		add r30,r22
+ 113 0086 F71F      		adc r31,r23
+ 114 0088 D701      		movw r26,r14
+ 115 008a A20F      		add r26,r18
+ 116 008c B31F      		adc r27,r19
+ 117 008e 9081      		ld r25,Z
+ 118 0090 8C91      		ld r24,X
+ 119 0092 DB01      		movw r26,r22
+ 120 0094 AA0F      		lsl r26
+ 121 0096 BB1F      		rol r27
+ 122 0098 9817      		cp r25,r24
+ 123 009a 01F0      		breq .L8
+ 124               	.LM10:
+ 125 009c A40F      		add r26,r20
+ 126 009e B51F      		adc r27,r21
+ 127 00a0 2D93      		st X+,r18
+ 128 00a2 3C93      		st X,r19
+ 129 00a4 00C0      		rjmp .L17
+ 130               	.L8:
+ 131               	.LM11:
+ 132 00a6 A40F      		add r26,r20
+ 133 00a8 B51F      		adc r27,r21
+ 134 00aa F901      		movw r30,r18
+ 135 00ac EE0F      		lsl r30
+ 136 00ae FF1F      		rol r31
+ 137 00b0 E40F      		add r30,r20
+ 138 00b2 F51F      		adc r31,r21
+ 139 00b4 8081      		ld r24,Z
+ 140 00b6 9181      		ldd r25,Z+1
+ 141 00b8 8D93      		st X+,r24
+ 142 00ba 9C93      		st X,r25
+ 143 00bc 00C0      		rjmp .L17
+ 144               	.L7:
+ 145               	.LM12:
+ 146 00be F901      		movw r30,r18
+ 147 00c0 EE0F      		lsl r30
+ 148 00c2 FF1F      		rol r31
+ 149 00c4 E40F      		add r30,r20
+ 150 00c6 F51F      		adc r31,r21
+ 151 00c8 2081      		ld r18,Z
+ 152 00ca 3181      		ldd r19,Z+1
+ 153               	.L17:
+ 154               	.LM13:
+ 155 00cc F701      		movw r30,r14
+ 156 00ce E60F      		add r30,r22
+ 157 00d0 F71F      		adc r31,r23
+ 158 00d2 9081      		ld r25,Z
+ 159 00d4 9923      		tst r25
+ 160 00d6 01F4      		brne .L9
+ 161 00d8 00E0      		ldi r16,lo8(0)
+ 162 00da 10E0      		ldi r17,hi8(0)
+ 163               	.LVL11:
+ 164 00dc 80E0      		ldi r24,lo8(0)
+ 165 00de 90E0      		ldi r25,hi8(0)
+ 166               	.LVL12:
+ 167 00e0 C0E0      		ldi r28,lo8(0)
+ 168 00e2 D0E0      		ldi r29,hi8(0)
+ 169               	.LVL13:
+ 170 00e4 00C0      		rjmp .L10
+ 171               	.LVL14:
+ 172               	.L14:
+ 173               	.LBE5:
+ 174               	.LBE4:
+ 175               	.LM14:
+ 176 00e6 2E17      		cp r18,r30
+ 177 00e8 01F4      		brne .L11
+ 178               	.LM15:
+ 179 00ea 0196      		adiw r24,1
+ 180               	.LM16:
+ 181 00ec FE01      		movw r30,r28
+ 182 00ee 3196      		adiw r30,1
+ 183               	.LVL15:
+ 184 00f0 00C0      		rjmp .L12
+ 185               	.LVL16:
+ 186               	.L11:
+ 187               	.LM17:
+ 188 00f2 FE01      		movw r30,r28
+ 189 00f4 EE0F      		lsl r30
+ 190 00f6 FF1F      		rol r31
+ 191 00f8 E40F      		add r30,r20
+ 192 00fa F51F      		adc r31,r21
+ 193 00fc 0190      		ld __tmp_reg__,Z+
+ 194 00fe F081      		ld r31,Z
+ 195 0100 E02D      		mov r30,__tmp_reg__
+ 196               	.LVL17:
+ 197 0102 0C0F      		add r16,r28
+ 198 0104 1D1F      		adc r17,r29
+ 199 0106 0E1B      		sub r16,r30
+ 200 0108 1F0B      		sbc r17,r31
+ 201               	.LM18:
+ 202 010a 2FEF      		ldi r18,hi8(-1)
+ 203 010c EF3F      		cpi r30,lo8(-1)
+ 204 010e F207      		cpc r31,r18
+ 205 0110 01F4      		brne .L12
+ 206               	.LM19:
+ 207 0112 0196      		adiw r24,1
+ 208 0114 E0E0      		ldi r30,lo8(0)
+ 209 0116 F0E0      		ldi r31,hi8(0)
+ 210               	.LVL18:
+ 211               	.L12:
+ 212 0118 EF01      		movw r28,r30
+ 213               	.LVL19:
+ 214               	.L10:
+ 215               	.LM20:
+ 216 011a F601      		movw r30,r12
+ 217 011c E80F      		add r30,r24
+ 218 011e F91F      		adc r31,r25
+ 219 0120 2081      		ld r18,Z
+ 220               	.LVL20:
+ 221 0122 2223      		tst r18
+ 222 0124 01F0      		breq .L13
+ 223 0126 F701      		movw r30,r14
+ 224 0128 EC0F      		add r30,r28
+ 225 012a FD1F      		adc r31,r29
+ 226 012c E081      		ld r30,Z
+ 227 012e EE23      		tst r30
+ 228 0130 01F4      		brne .L14
+ 229               	.L13:
+ 230               	.LM21:
+ 231 0132 CA01      		movw r24,r20
+ 232               	.LVL21:
+ 233 0134 0E94 0000 		call free
+ 234               	.LVL22:
+ 235               	.LM22:
+ 236 0138 CE0D      		add r28,r14
+ 237 013a DF1D      		adc r29,r15
+ 238 013c 8881      		ld r24,Y
+ 239 013e 8823      		tst r24
+ 240 0140 01F0      		breq .L15
+ 241               	.LVL23:
+ 242               	.L2:
+ 243 0142 0FEF      		ldi r16,lo8(-1)
+ 244 0144 1FEF      		ldi r17,hi8(-1)
+ 245               	.L15:
+ 246               	.LM23:
+ 247 0146 C801      		movw r24,r16
+ 248               	.LVL24:
+ 249               	/* epilogue start */
+ 250 0148 DF91      		pop r29
+ 251 014a CF91      		pop r28
+ 252               	.LVL25:
+ 253 014c 1F91      		pop r17
+ 254 014e 0F91      		pop r16
+ 255 0150 FF90      		pop r15
+ 256 0152 EF90      		pop r14
+ 257               	.LVL26:
+ 258 0154 DF90      		pop r13
+ 259 0156 CF90      		pop r12
+ 260               	.LVL27:
+ 261 0158 0895      		ret
+ 262               	.LFE8:
+ 288               	.Letext0:
+DEFINED SYMBOLS
+                            *ABS*:00000000 kmp.c
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:2      *ABS*:0000003f __SREG__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:3      *ABS*:0000003e __SP_H__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:4      *ABS*:0000003d __SP_L__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:5      *ABS*:00000034 __CCP__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:6      *ABS*:00000000 __tmp_reg__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:7      *ABS*:00000001 __zero_reg__
+C:\Users\ADMINI~1\AppData\Local\Temp/ccNJkqN3.s:18     .text:00000000 kmp
+
+UNDEFINED SYMBOLS
+malloc
+free
