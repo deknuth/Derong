@@ -1,0 +1,6 @@
+Change Net Name : Old Net Name=EIM_DA10 New Net Name=GPIO3_IO10
+Change Net Name : Old Net Name=EIM_DA11 New Net Name=GPIO3_IO11
+Change Net Name : Old Net Name=EIM_DA12 New Net Name=GPIO3_IO12
+Change Net Name : Old Net Name=EIM_DA14 New Net Name=GPIO3_IO14
+Added Member To Class: ClassName=1.POWER Member=Component P2 POWIN
+Added Member To Class: ClassName=1.POWER Member=Component P4 POW-IN
