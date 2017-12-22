@@ -1,0 +1,17 @@
+/*
+ * mobile.h
+ *
+ *  Created on: 2015年2月1日
+ *      Author: Lovenix
+ */
+
+#ifndef MOBILE_H_
+#define MOBILE_H_
+
+extern int MCtBack(int mfd,int stat,unsigned char* sc);
+extern int MCtaBack(int mfd,unsigned int stat);
+extern int DynBut(int mfd,unsigned char* rBuf);
+extern int MCtFtBack(int mfd,int ctWord,int stat);
+extern void GetKey(unsigned char* key,const unsigned char* buf,int len);
+extern void mSynPack(int mfd,unsigned char* pack,unsigned char len);
+#endif /* MOBILE_H_ */

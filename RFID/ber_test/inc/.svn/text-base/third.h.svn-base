@@ -1,0 +1,7 @@
+#ifndef THIRD_H_
+#define THIRD_H_
+
+extern void *front_flex(void *arg);
+extern void *back_java(void *arg);
+
+#endif

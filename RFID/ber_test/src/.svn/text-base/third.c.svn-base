@@ -1,0 +1,290 @@
+#include "../inc/main.h"
+#include "../inc/third.h"
+#if 0
+static void *JavaProcess(int tfd);
+static void *FlexProcess(int tfd);
+
+void *JavaProcess(int tfd)
+{
+	close(tfd);
+	/*
+	 char buf[257] = {0};
+	 int len;
+	 while(1)
+	 {
+	 len = read(tfd, buf, 256);
+	 if (len < 0 && errno != 11)
+	 {
+	 lprintf(lfd, FATAL, "Java read error!\n");
+	 close(tfd);
+	 pthread_exit(NULL);
+	 }
+	 else if (len > 0)
+	 {
+	 if(kmp(buf,JAVA_STR) != -1)
+	 {
+	 sem_wait(&sem_ud);
+	 UpdateTid();				// �����豸id
+	 sem_post(&sem_ud);
+	 }
+	 memset(buf,0x00,len+1);
+	 }
+	 else
+	 usleep(5000);
+	 }
+	 pthread_exit(NULL);
+	 */
+	return 0;
+}
+#endif
+void *back_java(void *arg)
+{
+#if 0
+	pthread_t threads;
+	pthread_attr_t attrs;
+	int listener, new_fd, listen_opt = 1;
+	struct sockaddr_in my_addr, their_addr;
+	socklen_t sin_size;
+	unsigned int lisnum;
+	lisnum = MAXLISTEN;
+	if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1) // socket
+	{
+		lprintf(lfd, FATAL, "Kernel: Java socket error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Java listen success!");
+
+	setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (void *) &listen_opt,
+			(int) sizeof(listen_opt)); //
+	bzero(&my_addr, sizeof(my_addr));
+	my_addr.sin_family = PF_INET;
+	my_addr.sin_port = htons(JAVA_PORT);
+	my_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(listener, (struct sockaddr *) &my_addr, sizeof(struct sockaddr))
+			== -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: Java bind error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Java IP and port bind success!");
+	if (listen(listener, lisnum) == -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: Java listen error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Java listen success!");
+	sin_size = sizeof(struct sockaddr_in);
+	while (1)
+	{
+		if ((new_fd = accept(listener, (struct sockaddr*) &their_addr,
+								&sin_size)) == -1)
+		{
+			lprintf(lfd, FATAL, "Kernel: Java accept error!");
+			continue;
+		}
+		else
+		{
+			lprintf(lfd, INFO, "Kernel: Java [%s] client: ",
+					inet_ntoa(their_addr.sin_addr));
+			//			if(ReadAnswer(new_fd))
+			{
+				pthread_attr_init(&attrs);
+				pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
+				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED); //
+				if (pthread_create(&threads, &attrs, (void*) JavaProcess,
+								(void*) new_fd))
+				{
+					lprintf(lfd, FATAL, "Kernel: Java pthread_creat error!");
+					exit(-1);
+				}
+			}
+			//		else
+			//				close(new_fd);
+		}
+	}
+#endif
+	return (void *) 0;
+}
+
+//flex
+/**********   ���?��ӿںʹ����ļ�   ********/
+
+//static int FitlerId(char *str, int ffd);
+/*
+ int FitlerId(char *str, int ffd)		//
+ {
+ if(str[0] != '$')
+ return (1);
+ char ffid[750][16] = {{0},{0}};
+ char* fsend = (char *)malloc(sizeof(char) * 144000);
+ memset(fsend,0x00,144000);
+ char temp[192] = {0};
+ int i,j,len,k;
+ k = 0;
+ j = 1;
+ len = strlen(str);
+ for(i=1; i<len; i++)
+ {
+ if(str[i] != '$')
+ {
+ ffid[j-1][k++] = str[i];
+ if(k > 16)
+ k = 0;
+ }
+ else
+ {
+ j++;
+ if(j > 749)
+ break;
+ k = 0;
+ }
+ }
+ len = TotalRec >> RATE;
+ for(k = 0; k < j; k++)
+ {
+ for(i=0; i < len; i++)
+ {
+ if(strcmp(gps_last[i].gid,ffid[k]) == 0)
+ break;
+ }
+ if(i == len)
+ sprintf(temp,"%s$%f$%f$%f$%d$%d$%d$*",ffid[k],0.00,0.00,0.00,0,0,0);
+ else
+ sprintf(temp,"%s$%f$%f$%f$%d$%d$%d$*",ffid[k],gps_last[i].lon,gps_last[i].lat,gps_last[i].speed,gps_last[i].stat,gps_last[i].udate,gps_last[i].utime);
+ strcat(fsend,temp);
+ memset(temp,0x00,192);
+ }
+ _write(ffd,fsend,strlen(fsend));
+ free(fsend);
+ return(0);
+ }
+ */
+
+#if 0
+void* FlexProcess(int tfd)
+{
+	char buf[1241] ={	0};
+	char abuf[8192] = {	0};		//
+	int len,step=0;
+
+	while(1)
+	{
+		len = read(tfd, buf, 1240);
+		if (len < 0 && errno != 11)
+		{
+			lprintf(lfd, FATAL, "flex read error!\n");
+			close(tfd);
+			pthread_exit(NULL);
+		}
+		else if(len == 1240)
+		{
+			if(step < 8)
+			{
+				if(strlen(abuf) > 8100)
+				{
+					_write(tfd,"shit!",5);
+					pthread_exit(NULL);
+				}
+				strcat(abuf,buf);
+				memset(buf,0x00,len+1);
+				step++;
+			}
+			else
+			memset(buf,0x00,len+1);
+
+		}
+		else if(len < 1024 && len != 0)
+		{
+			FitlerId(buf,tfd);
+			memset(buf,0x00,len+1);
+		}
+		else
+		{
+			if(step)
+			{
+				FitlerId(abuf,tfd);
+				memset(abuf,0x00,8192);
+			}
+			usleep(5000);
+		}
+	}
+	pthread_exit(NULL);
+
+	return (void *) 0;
+}
+#endif
+
+void* front_flex(void *arg)
+{
+#if 0
+	pthread_t threads;
+	pthread_attr_t attrs;
+	int listener, new_fd, listen_opt = 1;
+	struct sockaddr_in my_addr, their_addr;
+	socklen_t sin_size;
+	unsigned int lisnum;
+	lisnum = MAXLISTEN;
+	if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1) // socket
+	{
+		lprintf(lfd, FATAL, "Kernel: Flex socket error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Flex listen success!");
+
+	setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (void *) &listen_opt,
+			(int) sizeof(listen_opt)); //
+	bzero(&my_addr, sizeof(my_addr));
+	my_addr.sin_family = PF_INET;
+	my_addr.sin_port = htons(atoi(FLEX_PORT));
+	my_addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(listener, (struct sockaddr *) &my_addr, sizeof(struct sockaddr))
+			== -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: Flex bind error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Flex IP address and port bind success!");
+	if (listen(listener, lisnum) == -1)
+	{
+		lprintf(lfd, FATAL, "Kernel: Flex listen error!");
+		exit(1);
+	}
+	else
+	lprintf(lfd, INFO, "Kernel: Flex listen success!");
+	sin_size = sizeof(struct sockaddr_in);
+	while (1)
+	{
+		if ((new_fd = accept(listener, (struct sockaddr*) &their_addr,
+								&sin_size)) == -1)
+		{
+			lprintf(lfd, FATAL, "Kernel: Flex accept error!");
+			continue;
+		}
+		else
+		{
+			lprintf(lfd, INFO, "Kernel: Flex server: got connect from %s",
+					inet_ntoa(their_addr.sin_addr));
+			//	if(ReadAnswer(new_fd))
+			//	{
+			pthread_attr_init(&attrs);
+			pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
+			pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);//
+			if (pthread_create(&threads, &attrs, (void*) FlexProcess,
+							(void*) new_fd))
+			{
+				lprintf(lfd, FATAL, "Kernel: Flex pthread_creat error!");
+				exit(-1);
+			}
+			//	}
+			//	else
+			//			close(new_fd);
+		}
+	}
+#endif
+	return (void *) 0;
+}

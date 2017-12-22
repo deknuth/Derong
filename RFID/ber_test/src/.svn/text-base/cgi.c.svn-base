@@ -1,0 +1,171 @@
+/*
+ * cgi.c
+ *
+ *  Created on: 2016年6月27日
+ *      Author: Lovenix
+ */
+#include "../inc/main.h"
+
+static int GetPic(int mfd);
+
+int CreatTempFile(char *name,char* prefix,char* dir,char* path)
+{
+	int fd;
+	char file[128] = { 0 };
+	char sufix[8] = { "_XXXXXX" };
+	snprintf(file,sizeof(file),"%s%s/%s%s",CGI_PATH,dir,prefix,sufix);
+	if((fd = mkstemp(file)) == -1)
+	{
+#ifdef ERRPRT
+		printf("creat temp file failed!\n");
+		printf("file: %s\n",file);
+		perror("mkstemp:");
+#endif
+		return 0;
+	}
+	sscanf(&file[1], "%*[^/]/%*[^/]/%*[^/]/%*[^/]/%*[^/]/%s", name);
+	fchmod(fd,S_IROTH|S_IWUSR);
+	strcat(path,file);
+	return fd;
+}
+
+int DataReq(int mfd,unsigned char* buf,int len)
+{
+	int rc = 0;
+	int stat = 0;
+	char times[15] = {0};
+	char path[128] = {0};
+	char name[9] = { 0 };
+	unsigned char temp[8] = {0};
+	unsigned char pack[26+APP_KEY_LEN] = { 0 };
+	struct timeval ntime;
+
+	rc = ((buf[7]<<8) + buf[8]);
+	switch(rc)
+	{
+	case J_SW:			// switch
+		if(mInfo[mfd].tmpFile.ffd > 0)
+		{
+			remove(mInfo[mfd].tmpFile.path);
+			memset(mInfo[mfd].tmpFile.path,0x00,128);
+		}
+		if((mInfo[mfd].tmpFile.ffd = CreatTempFile(name,"j","4",path)) > 0)
+		{
+			strcat(mInfo[mfd].tmpFile.path,path);
+			JsonCheck(mfd,mInfo[mfd].id,mInfo[mfd].tmpFile.ffd,J_SW,1);
+			mInfo[mfd].tmpFile.wo = 1;
+			gettimeofday(&ntime, NULL);
+			mInfo[mfd].tmpFile.fctime = ntime.tv_sec;
+			close(mInfo[mfd].tmpFile.ffd);
+			stat = 0x3A0;
+		}
+		else
+			stat = 0x3A1;
+		break;
+	case J_AR:			// 安防
+		if(mInfo[mfd].tmpFile.ffd > 0)
+		{
+			remove(mInfo[mfd].tmpFile.path);
+			memset(mInfo[mfd].tmpFile.path,0x00,128);
+		}
+		if((mInfo[mfd].tmpFile.ffd = CreatTempFile(name,"j","5",path)) > 0)
+		{
+			strcat(mInfo[mfd].tmpFile.path,path);
+			JsonCheck(mfd,mInfo[mfd].id,mInfo[mfd].tmpFile.ffd,J_AR,1);
+			mInfo[mfd].tmpFile.wo = 1;
+			gettimeofday(&ntime, NULL);
+			mInfo[mfd].tmpFile.fctime = ntime.tv_sec;
+			close(mInfo[mfd].tmpFile.ffd);
+			stat = 0x3A0;
+		}
+		else
+			stat = 0x3A1;
+		break;
+	case J_IR:			// IR code
+		if(mInfo[mfd].tmpFile.ffd > 0)
+		{
+			remove(mInfo[mfd].tmpFile.path);
+			memset(mInfo[mfd].tmpFile.path,0x00,128);
+		}
+		if((mInfo[mfd].tmpFile.ffd = CreatTempFile(name,"j","6",path)) > 0)
+		{
+			strcat(mInfo[mfd].tmpFile.path,path);
+			JsonCheck(mfd,mInfo[mfd].id,mInfo[mfd].tmpFile.ffd,J_IR,1);
+			mInfo[mfd].tmpFile.wo = 1;
+			gettimeofday(&ntime, NULL);
+			mInfo[mfd].tmpFile.fctime = ntime.tv_sec;
+			close(mInfo[mfd].tmpFile.ffd);
+			stat = 0x3A0;
+		}
+		else
+			stat = 0x3A1;
+		break;
+	case 0x07:			// camera data request
+		if(GetPic(mfd))
+		{
+			if(mInfo[mfd].tmpFile.ffd > 0)
+			{
+				remove(mInfo[mfd].tmpFile.path);
+				memset(mInfo[mfd].tmpFile.path,0x00,128);
+			}
+			if((mInfo[mfd].tmpFile.ffd = CreatTempFile(name,"p","7",path)) > 0)
+			{
+				strcat(mInfo[mfd].tmpFile.path,path);
+				gettimeofday(&ntime, NULL);
+				mInfo[mfd].tmpFile.fctime = ntime.tv_sec;
+				stat = 0x3A0;
+			}
+			else
+				stat = 0x3A1;
+		}
+		else
+			stat = 0x3A1;
+		break;
+	default:
+		stat = 0x3A1;
+		break;
+	}
+	while(!mInfo[mfd].tmpFile.wo)
+	{
+		gettimeofday(&ntime, NULL);
+		if(ntime.tv_sec - mInfo[mfd].tmpFile.fctime > 10)
+			break;
+		sleep(1);
+	}
+	if(mInfo[mfd].tmpFile.wo == 2)
+		stat = 0x3A1;
+	gtime(times);
+	StringToHex(temp,times);
+	memcpy(&pack[7],&buf[7],2);		// request context
+	memcpy(&pack[9],&buf[7],2);		// type
+	memcpy(&pack[11],name,8);		// key
+	memcpy(&pack[19],temp,6);		// time
+	GetKey(&pack[25],buf,len);
+	RPBack(stat,pack,26+APP_KEY_LEN);
+	mInfo[mfd].tmpFile.wo = 0;
+	_write(mfd, pack, 26+APP_KEY_LEN);
+	return 1;
+}
+
+int GetPic(int mfd)
+{
+	unsigned char pack[8] = { 0xFE,0x00,0x08,0x00,0x01,0x01,0xA0,0xFF };
+	int index = 0;
+	int rb = 0;
+	if(ProtForward(mfd, pack, 8))
+	{
+		UpdateMClient(mfd);
+		index = GetHashTablePos(mInfo[mfd].id,RidHash,MHI);
+		hInfo[index].mfd = mfd;
+//		MCtaBack(mfd, 0x07B0);
+		rb = 1;
+	}
+	else
+		rb = 0;//MCtaBack(mfd, 0x07B1);
+	return rb;
+}
+
+int JRBack(unsigned char *pack)
+{
+	return 1;
+}

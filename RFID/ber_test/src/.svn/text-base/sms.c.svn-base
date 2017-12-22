@@ -1,0 +1,544 @@
+/*
+ * sms.c
+ *
+ *  Created on: 2016年5月12日
+ *      Author: lovenix
+ */
+
+#include "../inc/main.h"
+
+int GetIp(char* url,char* ip)
+{
+    struct hostent* host;
+    char* p = NULL;
+    if((host = gethostbyname(url)) != NULL)
+	{
+		p = inet_ntoa(*((struct in_addr *)host->h_addr_list[0]));
+		memcpy(ip,p,strlen(p));
+		return 1;
+	}
+	else
+		return 0;
+}
+
+int GetLBS(WINF *pWf)
+{
+	int sockfd,index;
+	char url[1024] = {0};
+	char rBuf[2048] = {0};
+	char ip[20] = {0};
+	struct sockaddr_in address;
+	char *LBS_REQ_A = "GET /cell/?mcc=460&mnc=%s&lac=%s&ci=%s&output=csv HTTP/1.1\r\nHost:api.cellocation.com:\r\nConnection: Close\r\n\r\n";
+	char *LBS_REQ_B	= "GET /loc/?cl=460,%s,%s,%s,%s;460,%s,%s,%s,%s&output=csv HTTP/1.1\r\nHost:api.cellocation.com:\r\nConnection: Close\r\n\r\n";
+	char *LBS_REQ_C	= "GET /loc/?cl=460,%s,%s,%s,%s;460,%s,%s,%s,%s;460,%s,%s,%s,%s&output=csv HTTP/1.1\r\nHost:api.cellocation.com:\r\nConnection: Close\r\n\r\n";
+	if(GetIp("api.cellocation.com",ip) == 0)
+		return 0;
+	w_printf("lbn: %d\n",pWf->lbn);
+	switch(pWf->lbn)
+	{
+	case 1:
+		snprintf(url,sizeof(url),LBS_REQ_A,
+				pWf->mnc,pWf->lac[0],pWf->cellid[0]);
+		break;
+	case 2:
+		snprintf(url,sizeof(url),LBS_REQ_B,
+				pWf->mnc,pWf->lac[0],pWf->cellid[0],pWf->rssi[0],
+				pWf->mnc,pWf->lac[1],pWf->cellid[1],pWf->rssi[1]);
+		break;
+	default:
+		snprintf(url,sizeof(url),LBS_REQ_C,
+				pWf->mnc,pWf->lac[0],pWf->cellid[0],pWf->rssi[0],
+				pWf->mnc,pWf->lac[1],pWf->cellid[1],pWf->rssi[1],
+				pWf->mnc,pWf->lac[2],pWf->cellid[2],pWf->rssi[2]);
+		break;
+	}
+	w_printf("LBS[%d]: %s\n",strlen(url),url);
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = inet_addr(ip);
+	address.sin_port = htons(80);
+	if(connect(sockfd, (struct sockaddr *)&address, sizeof(address)) == -1)
+	{
+		close(sockfd);
+		return 0;
+	}
+	if(_write(sockfd,url,strlen(url)) == 0)
+	{
+		close(sockfd);
+		return 0;
+	}
+	while(1)
+	{
+		if(recv(sockfd, rBuf, sizeof(rBuf), 0) <= 0)
+			break;
+	}
+//	m_printf("LBS read: %s\n",rBuf);
+	if((index = kmp(rBuf,"utf-8")) != -1)
+	{
+		index += 5;
+		if(strlen(&rBuf[index]) > 20)
+		{
+			if(sscanf(&rBuf[index],"%*[^,],%11[^,]",pWf->sGi.llat) == 1)
+			{
+				sscanf(&rBuf[index],"%*[^,],%*[^,],%11[^,]",pWf->sGi.llon);
+				index = 1;
+			}
+		}
+		else
+		{
+			m_printf("lbs get len: %d\n",strlen(&rBuf[index]));
+			index = 0;
+		}
+	}
+	else
+		index = 0;
+	close(sockfd);
+	return index;
+}
+
+int SendMSG(int num,const char *context,const char* phone, ...)
+{
+	int sockfd,rs;
+	char number[512] = {0};
+	char url[2048] = {0};
+	struct sockaddr_in address;
+	if(num > 31 || num < 1)
+		return 0;
+	va_list mark;
+	va_start(mark,phone);
+	strcat(number,phone);
+	while(--num)
+	{
+		strcat(number,",");
+		phone = va_arg(mark,const char *);
+		strncat(number,phone,11);
+	}
+	va_end(mark);
+	snprintf(url,sizeof(url),REQ,SMS_USER,SMS_PASSWD,context,number,SMS_EPID);
+
+	m_printf("SMS: %s\n",url);
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = inet_addr(DestIp);
+	address.sin_port = htons(DestPort);
+	if(connect(sockfd, (struct sockaddr *)&address, sizeof(address)) == -1)
+	{
+		close(sockfd);
+		return 0;
+	}
+	rs = _write(sockfd,url,strlen(url));
+#ifdef BUG
+	char rcvBuf[2048] = {0};
+    while(1)
+    {
+    	num = recv(sockfd, rcvBuf, 2048, 0);
+    	if((0 == num) || (-1 == num))
+    		break ;
+    }
+	printf("SMS socket recv: %s\n", rcvBuf);
+#endif
+	close(sockfd);
+	return rs;
+}
+
+int MakeVCode(int mfd,char* phone,int flag,int index)
+{
+	char temp[8] = {0};
+	unsigned int code = 0;
+	code = rand()%1000000;
+	sInfo[index].VerifCode = code;
+	sInfo[index].flag = 1;
+	sInfo[index].master = flag;
+	sInfo[index].mfd = mfd;
+	if(sprintf(temp,"%06d",code) > 0)
+	{
+		m_printf("VCODE: %s\t phone: %s\n",temp,phone);
+		if(SendMSG(1,temp,&phone[1]))
+			return 0x10F;
+		else
+			return  0x110;
+	}
+	else
+		return 0x110;
+}
+
+int GetVerifCode(int mfd,unsigned char *buf,int len)
+{
+	int type = 0;
+	int index = 0;
+	int i,j;
+	char phone[13] = {0};
+	char sql[256] = {0};
+	char date[15] = {0};
+	char res[16] = {0};
+	char sn[17] = {0};
+	unsigned char temp[8] = {0};
+	unsigned char pack[14+APP_KEY_LEN] = {0};
+	unsigned int resno = 0;
+	memcpy(temp,&buf[7],6);
+	HexToString(phone,temp,6);
+	memcpy(temp,&buf[13],8);
+	if(IdCrc(temp,8))// && (mInfo[mfd].tflag==0))	// regediter
+	{
+		HexToString(sn,temp,8);
+		if(GetHashTablePos(sn,RidHash,MHI) > 0)		// ID right
+		{
+			snprintf(sql,sizeof(sql),"select r_phone from t_user_info where r_sn='%s' and r_master = '1'",sn);
+			type = 1;
+		}
+		else
+			resno = 0x103;	// id error
+	}
+	else if(mInfo[mfd].tflag)					// password modify
+	{
+		snprintf(sql,sizeof(sql),"select count(r_id) from t_user_info where r_phone='%s'",phone);
+		type = 0;
+	}
+	else
+		return 0;
+
+	s_printf("GET VCODE SQL: %s\n",sql);
+
+	if(0 == resno)
+	{
+		if(CountCheck(oracle_env, sql, res) > 0)
+		{
+			index = GetHashTablePos(phone,SmsHash,SHI);
+			if(index == 0)
+				index = InsertHash(phone,SmsHash,SHI);
+
+			m_printf("vc phone index:%d\n",index);
+
+			if(type)		// regediter
+			{
+				if(strlen(res) < 10)	// first
+					resno = MakeVCode(mfd,phone,1,index);
+				else
+				{
+					resno = MakeVCode(mfd,res,0,index);
+					if(0x10F == resno)
+						resno = 0x112;
+				}
+				if(resno != 0x110)
+					memcpy(sInfo[index].phone,phone,12);
+			}
+			else		// modify
+			{
+				resno = atoi(res);
+				if(resno == 1)
+					resno = MakeVCode(mfd,phone,0,index);
+				else
+					resno = 0x10D;
+			}
+		}
+		else
+			resno = 0x106;
+	}
+
+	pack[0] = 0xFD;
+	pack[1] = 0x00;
+	pack[2] = 14+APP_KEY_LEN;
+	pack[5] = HI_8BIT(resno);
+	pack[6] = LO_8BIT(resno);
+	gtime(date);
+	for(i=0,j=7; j<13; i++,j++)
+	{
+		pack[j] = ((int)date[i]-48)*10;
+		pack[j] += ((int)date[++i]-48);
+	}
+	GetKey(&pack[13],buf,len);
+	pack[13+APP_KEY_LEN] = 0xFF;
+	_m_write(mfd,pack,14+APP_KEY_LEN);				// 注册返回包
+	return 1;
+}
+
+/*****极光推送部分****/
+void bytes2Hex(char *hexString, void *bytes, int len)
+{
+    int i;
+    char tmpStr[3];
+    unsigned char *rawBytes;
+    rawBytes = (unsigned char *)bytes;
+    for (i = 0, hexString[0] = '\0';i < len;i++)
+    {
+        sprintf(tmpStr, "%02x", rawBytes[i]);
+        strcat(hexString, tmpStr);
+    }
+}
+
+size_t curl_get_data(void *ptr, size_t size, size_t count, void *userdata)
+{
+
+    m_printf("CURL BACK: %s\n",(char *)ptr);
+	// memcpy(userdata,ptr,size*count);
+    return size * count;
+}
+
+int PushMessage(char* alias,char* context,int type)
+{
+	const char json_text[] = {"{\
+			 \"n_content\":\"update\",\
+			 \"n_extras\":{\
+			    \"app\":{\
+			        \"badge\":88,\
+			        \"sound\":\"default\",\
+			        \"content-available\":1\
+			        },\
+			 \"value\":\"%s\"}\
+			}"
+	};
+
+    CURL *curl;
+    CURLcode res;
+    MD5_CTX ctx;
+    unsigned char md5Value[16] = { 0 };
+    char md5String[33] = { 0 };
+    char temp[256] = { 0 };
+    char js[256] = { 0 };
+    const char *pSendno = "123456";
+    const char *pAppKey = APP_KEY;
+
+    const char *pReceiverType = "3";
+//    w_printf("push alias: %s\n",alias);
+	/*
+		2 - 指定的 tag。
+		3 - 指定的 alias。
+		4 - 广播：对 app_key 下的所有用户推送消息。
+		5 - 根据 RegistrationID 进行推送。Android SDK r1.6.0 及以上版本支持。
+	*/
+  //  const char *pReceiverValue = "FHL";
+
+	/*
+		发送范围值，与 receiver_type 相对应。
+		2 - App 调用 SDK API 设置的 tag （标签）。支持多达 10 个，使用 "," 间隔。填写多个 tag 时，
+			最后推送对象是这多个 tag 的 user set 的并集，而不会有重复用户。
+		3 - App 调用 SDK API 设置的 alias （别名）。支持多达 1000 个，使用 "," 间隔。
+		4 - 不需要填.
+		5 - 目标设备的 RegistrationID。支持多达 1000 个，使用 “,” （逗号）间隔。
+	*/
+
+    const char *pMasterSecret = API_MASTER_SECRECT;
+    char *pForm = (char *)malloc(MAX_BODY);
+    char *pTemp = (char *)malloc(MAX_BODY);
+//    char *pBack = (char *)malloc(MAX_BODY);
+    memset(pForm, 0, MAX_BODY);
+    memset(pTemp, 0, MAX_BODY);
+ //   memset(pBack, 0, MAX_BODY);
+
+    curl = curl_easy_init();			// get a curl handle
+    if(curl)
+	{
+        /* First set the URL that is about to receive our POST. This URL can
+         just as well be a https:// URL if that is what should receive the
+         data. */
+    	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        curl_easy_setopt(curl, CURLOPT_URL, "https://api.jpush.cn:443/sendmsg/v2/sendmsg");
+        /* Now specify the POST data */
+        //sendno
+        sprintf(pTemp, "sendno=%s", pSendno);
+        strcat(pForm, pTemp);
+        sprintf(pTemp, "&app_key=%s", pAppKey);	//app_key
+        strcat(pForm, pTemp);
+        sprintf(pTemp, "&receiver_type=%s", pReceiverType);		// receiver_type
+        strcat(pForm, pTemp);
+        sprintf(pTemp, "&receiver_value=%s", alias);	// alias name
+        strcat(pForm, pTemp);
+
+        MD5Init(&ctx);
+      //  sprintf(pTemp, "%s%s%s%s", pSendno, pReceiverType, pReceiverValue, pMasterSecret);	// verification_code
+        sprintf(pTemp,"%s%s%s%s", pSendno, pReceiverType, alias, pMasterSecret);	// verification_code
+        MD5Update(&ctx, (unsigned char*)pTemp, strlen(pTemp));
+        MD5Final(&ctx, md5Value);
+        bytes2Hex(md5String, md5Value, 16);
+
+        sprintf(pTemp, "&verification_code=%s", md5String);
+        strcat(pForm, pTemp);
+        strcat(pForm, "&msg_type=1");									// msg_type, always 1
+		/*
+			msg_type
+			发送消息的类型：
+			1 - 通知
+			2 - 自定义消息（只有 Android 支持）
+		*/
+        if(type)
+        	snprintf(temp,sizeof(temp),"&msg_content={\"n_content\":\"%s\"}",context);
+        else
+        {
+        	snprintf(js,sizeof(js),json_text,context);
+        	snprintf(temp,sizeof(temp),"&msg_content=%s",js);
+        }
+        strcat(pForm, temp);	// msg_content, content of message
+     //   strcat(pForm, "&send_description=CC");			// send_description, can be ommitted
+        strcat(pForm, "&platform=ios&androids");		// platform, ios,android
+        strcat(pForm, "&time_to_live=432000");			// time_to_live, in seconds
+        r_printf("pFrom: %s\n",pForm);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, pForm);	// Perform the request, res will get the return code
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,curl_get_data);
+  //      curl_easy_setopt(curl, CURLOPT_WRITEDATA, pBack);
+        res = curl_easy_perform(curl);
+
+        if(res != CURLE_OK)		// Check for errors
+        	lprintf(lfd, INFO, "Curl: %s",curl_easy_strerror(res));
+        curl_easy_cleanup(curl);	// always cleanup
+    }
+
+    free(pForm);
+    free(pTemp);
+ //   free(pBack);
+    return 0;
+}
+
+
+int PushMessageV3(int num, int type, char* alias, char* context, int value, ...)
+{
+    CURL *curl;
+    CURLcode res;
+    char json_text[] = {"{\"platform\":\"all\",\"audience\":{\"alias\":[\"%s\"]},\"notification\":{\"ios\":{\"sound\":\"happy\",\"extras\":{\"type\":\"%s\",%s\"time\":\"%s\"},\"badge\":1,\"alert\":\"%s\"}},\"options\":{\"sendno\":123456789,\"time_to_live\":60,\"apns_production\":true}}"};
+    char json[1024] = {0};
+    char basic[384] = {0};
+    char base64[256] = {0};
+    char st_basic[64] = {"Authorization: Basic %s"};
+    char key[128] = {0};
+    char *pForm = (char *)malloc(MAX_BODY);
+    char temp[24] = {"\"value%d\":\"%d\""};
+    char temp1[24] = {",\"value%d\":\"%d\""};
+    char temp2[48] = {0};
+    char arg[512] = {0};
+    char times[48] = {0};
+    int i = 0;
+    struct curl_slist *list = NULL;
+    time_t now;
+    struct tm  *timenow;
+    time(&now);
+    timenow = localtime(&now);
+
+    snprintf(times,sizeof(times),"%04d-%02d-%02d %02d:%02d:%02d",timenow->tm_year+1900,timenow->tm_mon+1,timenow->tm_mday,timenow->tm_hour,timenow->tm_min,timenow->tm_sec);
+    memset(pForm, 0, MAX_BODY);
+
+    if(num > 0 && num < 15)
+    {
+        va_list mark;
+        va_start(mark,value);
+        sprintf(temp2,temp,i++,value);
+        strcat(arg,temp2);
+        while(--num)
+        {
+            value = va_arg(mark,int);
+            sprintf(temp2,temp1,i++,value);
+            strcat(arg,temp2);
+        }
+        strcat(arg,",");
+        va_end(mark);
+
+    }
+    snprintf(key,sizeof(key),"%s:%s",APP_KEY,API_MASTER_SECRECT);
+    base64Encoder(key,base64);
+    snprintf(basic,sizeof(basic),st_basic,base64);
+    switch(type)
+    {
+    case 1:
+        snprintf(json,sizeof(json),json_text,alias,"ir",arg,times,context);
+        break;
+    case 2:
+        snprintf(json,sizeof(json),json_text,alias,"alarm",arg,times,context);
+        break;
+    case 3:
+        snprintf(json,sizeof(json),json_text,alias,"switch",arg,times,context);
+        break;
+    case 4:
+        snprintf(json,sizeof(json),json_text,alias,"watch",arg,times,context);
+        break;
+    default:
+        snprintf(json,sizeof(json),json_text,alias,"other",arg,times,context);
+        break;
+    }
+    curl = curl_easy_init();			// get a curl handle
+
+    if(curl)
+	{
+		list = curl_slist_append(list, basic);
+		list = curl_slist_append(list, "Content-Type:application/json");
+    	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        memcpy(pForm,json,strlen(json));
+        m_printf("pFrom: %s\n",pForm);
+		curl_easy_setopt(curl, CURLOPT_URL, "https://api.jpush.cn/v3/push");
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+		curl_easy_setopt(curl, CURLOPT_POST, 1);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, pForm);	// Perform the request, res will get the return code
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,curl_get_data);
+  //      curl_easy_setopt(curl, CURLOPT_WRITEDATA, pBack);
+        res = curl_easy_perform(curl);
+
+		curl_slist_free_all(list); /* free the list again */
+        if(res != CURLE_OK)		// Check for errors
+        	m_printf("Curl: %s",curl_easy_strerror(res));
+        curl_easy_cleanup(curl);	// always cleanup
+    }
+
+    free(pForm);
+ //   free(pBack);
+    return 0;
+}
+/* we have this global to let the callback get easy access to it */
+static pthread_mutex_t *lockarray;
+
+#ifdef USE_OPENSSL
+#include <openssl/crypto.h>
+static void lock_callback(int mode, int type, char *file, int line)
+{
+	(void) file;
+	(void) line;
+	if (mode & CRYPTO_LOCK)
+		pthread_mutex_lock(&(lockarray[type]));
+	else
+		pthread_mutex_unlock(&(lockarray[type]));
+}
+
+#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_0_0
+	static void thread_id(CRYPTO_THREADID * id)
+	{
+		id->val = pthread_self();
+	}
+#else
+	static unsigned long thread_id(void)
+	{
+		unsigned long ret;
+		ret = (unsigned long) pthread_self();
+		return ret;
+	}
+#endif
+
+
+void init_locks(void)
+{
+	int i;
+	lockarray = (pthread_mutex_t *) OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+
+	for (i = 0; i < CRYPTO_num_locks(); i++)
+		pthread_mutex_init(&(lockarray[i]), NULL);
+
+#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_0_0
+	CRYPTO_THREADID_set_callback(thread_id);
+#else
+	CRYPTO_set_id_callback((unsigned long (*)()) thread_id);
+#endif
+	CRYPTO_set_locking_callback((void (*)()) lock_callback);
+}
+
+void kill_locks(void)
+{
+	int i;
+
+	CRYPTO_set_locking_callback(NULL);
+	for (i = 0; i < CRYPTO_num_locks(); i++)
+		pthread_mutex_destroy(&(lockarray[i]));
+	OPENSSL_free(lockarray);
+}
+#endif
+

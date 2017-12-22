@@ -1,0 +1,400 @@
+#include "../inc/main.h"
+#include "../inc/network.h"
+
+static int DelWfdUser(int mfd,int nPos);
+
+void UpdatePClient(int pfd)			// update photo client
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	pInfo[pfd].cntime = untime.tv_sec;		// get now time
+}
+
+void UpdateRClient(int rfd)			// update robot client
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	rInfo[rfd].cntime = untime.tv_sec;
+}
+
+void UpdateMClient(int mfd)			// update mobile client
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	mInfo[mfd].cntime = untime.tv_sec;
+}
+
+void UpdateWClient(int wfd)			// update watch client
+{
+	struct timeval wntime;
+	gettimeofday(&wntime, NULL);
+	wInfo[wfd].cntime = wntime.tv_sec;
+}
+
+void *RClientManage(void *arg)			// robot client manage
+{
+	struct timeval ntime;
+	struct timespec sleeptm;
+	int i,count=0;
+	sleeptm.tv_sec = 0;
+	sleeptm.tv_nsec = NANOSECOND;
+	while(1)
+	{
+//		sem_wait(&sem_rcm);     // robot manage signal
+		gettimeofday(&ntime, NULL);
+		for(i=0; i<MAXEPOLLSIZE; i++)
+		{
+			if(rInfo[i].tfd & rInfo[i].tflag)						// old client ->client and through  authentication
+			{
+				if((ntime.tv_sec - rInfo[i].cntime) > ROBOT_HEART_TIME)		// old client timeout set
+				{
+					if(rInfo[i].cflag == -1)
+						lprintf(lfd, INFO, "Robot: [%s] active closed!",rInfo[i].id);
+					else if(rInfo[i].cflag == -2)
+						lprintf(lfd, INFO, "Robot: [%s] last client closed!",rInfo[i].id);
+					else
+						lprintf(lfd, INFO, "Robot: [%s] timeout closed!",rInfo[i].id);
+				 	epoll_ctl(kdpfd, EPOLL_CTL_DEL, rInfo[i].tfd, &ev);
+				 	close(rInfo[i].tfd);
+					if(rInfo[i].cflag != -2)
+						hInfo[rInfo[i].hiv].rhiv = 0;
+					rInfo[i].tfd = 0;
+					rInfo[i].tflag = 0;
+					rInfo[i].cflag = 0;
+					rInfo[i].hiv = 0;
+//					DelHashTablePos(cInfo[i].id, RidHash,MHI);			// delete hash value
+					memset(rInfo[i].ip,0x00,16);
+					memset(rInfo[i].id,0x00,17);
+					memset(rInfo[i].alias,0x00,17);
+					memset(rInfo[i].mPhone,0x00,12);
+					atomic_dec(R_CON_NUM);
+				}
+			}
+			else if(rInfo[i].tfd | rInfo[i].tflag)					// new client
+			{
+				if((ntime.tv_sec - rInfo[i].cntime) > ROBOT_DEAD_TIME)		//	new client timeout setting
+				{
+					lprintf(lfd, INFO, "Robot: External client [%s] close!",rInfo[i].ip);
+					epoll_ctl(kdpfd, EPOLL_CTL_DEL, rInfo[i].tfd, &ev);
+					close(rInfo[i].tfd);
+					rInfo[i].tfd = 0;
+					rInfo[i].tflag = 0;
+					memset(rInfo[i].ip,0x00,16);
+				}
+			}
+		}
+//		sem_post(&sem_rtcp);
+		nanosleep(&sleeptm,NULL);
+		count++;
+		if(count == 32766)
+		{
+			r_printf("Robot connect number: %d\n",atomic_read(R_CON_NUM));
+			count = 0;
+		}
+	}
+}
+
+void *MClientManage(void *arg)			// mobile  client manage
+{
+	struct timeval ntime;
+	struct timespec sleeptm;
+	int count = 0;
+	int index,i=0;
+	sleeptm.tv_sec = 0;
+	sleeptm.tv_nsec = NANOSECOND;
+	while(1)
+	{
+//		sem_wait(&sem_mcm);     		// manage signal
+		gettimeofday(&ntime, NULL);
+		for(i=0; i<MAXEPOLLSIZE; i++)
+		{
+			if(mInfo[i].mfd & mInfo[i].tflag)						// old client
+			{
+				if((ntime.tv_sec - mInfo[i].cntime) > MOBIL_HEART_TIME)		// old client timeout
+				{
+					if(mInfo[i].cflag == -1)
+						lprintf(lfd, INFO,"Mobile[%x]: [%s] active closed!",mInfo[i].version,mInfo[i].id);
+					else if(mInfo[i].cflag == -2)
+						lprintf(lfd, INFO,"Mobile: [%s] drop closed!",mInfo[i].id);
+					else
+						lprintf(lfd, INFO,"Mobile[%x]: [%s] timeout closed!",mInfo[i].version,mInfo[i].id);
+				 	epoll_ctl(mkdpfd, EPOLL_CTL_DEL, mInfo[i].mfd, &evm);
+					close(mInfo[i].mfd);
+					index = GetHashTablePos(mInfo[i].id,RidHash,MHI);
+					DelMfdIndex(mInfo[i].mfd,index);
+					DelWfdUser(mInfo[i].mfd,index);
+					mInfo[i].mfd = 0;
+					mInfo[i].tflag = 0;
+					mInfo[i].cflag = 0;
+	//				DelHashTablePos(mInfo[i].id, RidHash,MHI);		// close client and delete hash value
+					mInfo[i].hiv = 0;
+					hInfo[index].mcun--;							// connect number --
+					hInfo[index].pValid = 0;
+			//		whInfo[GetHashTablePos(mInfo[i].wid,WidHash,MHI)].mfd = 0;
+					remove(mInfo[i].tmpFile.path);		// delete temp file
+
+					mInfo[i].tmpFile.ffd = 0;
+					mInfo[i].tmpFile.wo = 0;
+					mInfo[i].w_state = 0;
+					memset(mInfo[i].tmpFile.path,0x00,128);
+					memset(mInfo[i].user,0x00,17);
+					memset(mInfo[i].ip,0x00,16);
+					memset(mInfo[i].id,0x00,17);
+					memset(mInfo[i].wid,0x00,17);
+					atomic_dec(M_CON_NUM);
+				}
+			}
+			else if(mInfo[i].mfd | mInfo[i].tflag)					// new client
+			{
+				if((ntime.tv_sec - mInfo[i].cntime) > MOBIL_DEAD_TIME)		// new client timeout setting
+				{
+					lprintf(lfd, INFO, "Mobile: External client [%s] close!",mInfo[i].ip);
+					epoll_ctl(mkdpfd, EPOLL_CTL_DEL, mInfo[i].mfd, &evm);
+					close(mInfo[i].mfd);
+					mInfo[i].mfd = 0;
+					mInfo[i].tflag = 0;
+					memset(mInfo[i].ip,0x00,16);
+				}
+			}
+		}
+//		sem_post(&sem_mtcp);
+		nanosleep(&sleeptm,NULL);
+		count++;
+		if(count == 32766)
+		{
+			m_printf("APP connect number: %d\n",atomic_read(M_CON_NUM));
+			count = 0;
+		}
+		if(atomic_read(M_CON_NUM) == 0)
+		{
+			FileClear("4");
+			FileClear("5");
+			FileClear("6");
+			FileClear("7");
+		}
+	}
+}
+
+void *PClientManage(void *arg)			// picture client manager
+{
+	struct timeval ntime;
+	struct timespec sleeptm;
+	int i = 0;
+	sleeptm.tv_sec = 0;
+	sleeptm.tv_nsec = NANOSECOND;
+	while(1)
+	{
+//		sem_wait(&sem_pcm);     		// manage signal
+		gettimeofday(&ntime, NULL);
+		for(i=0; i<MAXEPOLLSIZE; i++)
+		{
+			if(pInfo[i].pfd & pInfo[i].tflag)						// old client
+			{
+				if((ntime.tv_sec - pInfo[i].cntime) > PHOTO_HEART_TIME)		// old client timeout
+				{
+					if(pInfo[i].cflag == -1)
+						lprintf(lfd, INFO,"Photo: [%s] Client active closed!",pInfo[i].ip);
+					else
+						lprintf(lfd, INFO,"Photo: [%s] Client timeout closed!",pInfo[i].ip);
+				 	epoll_ctl(pkdpfd, EPOLL_CTL_DEL, pInfo[i].pfd, &evp);
+					close(pInfo[i].pfd);
+					pInfo[i].pfd = pInfo[i].tflag = 0;
+					pInfo[i].count = 0;
+					pInfo[i].index = 0;
+					pInfo[i].mfd = 0;
+					if(pInfo[i].dsf && (pInfo[i].wFlag==0))
+						free(pInfo[i].pBuf);
+
+					pInfo[i].dsf = pInfo[i].wFlag = 0;
+					memset(pInfo[i].ip,0x00,16);
+				}
+			}
+			else if(pInfo[i].pfd | pInfo[i].tflag)					// new client
+			{
+				if((ntime.tv_sec - pInfo[i].cntime) > PHOTO_DEAD_TIME)		// new client timeout setting
+				{
+					lprintf(lfd, INFO, "Photo: External client [%s] close!",pInfo[i].ip);
+					epoll_ctl(pkdpfd, EPOLL_CTL_DEL, pInfo[i].pfd, &evp);
+					close(pInfo[i].pfd);
+					pInfo[i].pfd = 0;
+					pInfo[i].tflag = 0;
+					pInfo[i].wFlag = 0;
+					memset(pInfo[i].ip,0x00,16);
+				}
+			}
+		}
+//		sem_post(&sem_ptcp);
+		nanosleep(&sleeptm,NULL);
+	}
+}
+
+void *WClientManage(void *arg)			// watch client manage
+{
+	struct timeval ntime;
+	struct timespec sleeptm;
+	int index,i=0;
+	sleeptm.tv_sec = 0;
+	sleeptm.tv_nsec = NANOSECOND;
+	while(1)
+	{
+//		sem_wait(&sem_wcm);     		// manage signal
+		gettimeofday(&ntime, NULL);
+		for(i=0; i<MAXEPOLLSIZE; i++)
+		{
+			if(wInfo[i].wfd & wInfo[i].tflag)						// old client
+			{
+				if((ntime.tv_sec - wInfo[i].cntime) > WATCH_HEART_TIME)		// old client timeout
+				{
+					if(wInfo[i].cflag == -1)
+						lprintf(lfd, INFO,"Watch: [%s] active closed!",wInfo[i].id);
+					else if(wInfo[i].cflag == -2)
+						lprintf(lfd, INFO,"Watch: [%s] drop closed!",wInfo[i].id);
+					else
+						lprintf(lfd, INFO,"Watch: [%s] timeout closed!",wInfo[i].id);
+				 	epoll_ctl(wkdpfd, EPOLL_CTL_DEL, wInfo[i].wfd, &evw);
+					close(wInfo[i].wfd);
+					index = GetHashTablePos(wInfo[i].id,WidHash,MHI);
+					wInfo[i].wfd = 0;
+					wInfo[i].tflag = 0;
+					wInfo[i].cflag = 0;
+					wInfo[i].ef_flag = 0;
+	//				DelHashTablePos(mInfo[i].id, RidHash,MHI);		// close client and delete hash value
+					wInfo[i].hiv = 0;
+					whInfo[index].whiv = 0;
+					memset(wInfo[i].ip,0x00,16);
+					memset(wInfo[i].id,0x00,17);
+					memset(wInfo[i].alias,0x00,17);
+					index = GetHashTablePos(wInfo[i].rid,RidHash,MHI);
+					memset(wInfo[i].rid,0x00,17);
+					hInfo[index].wfd = 0;
+					memset(&wInfo[i].sLLInfo,0x00,sizeof(LON_LAT));
+				}
+			}
+			else if(wInfo[i].wfd | wInfo[i].tflag)					// new client
+			{
+				if((ntime.tv_sec - wInfo[i].cntime) > WATCH_DEAD_TIME)		// new client timeout setting
+				{
+					lprintf(lfd, INFO, "Watch: External client [%s] close!",wInfo[i].ip);
+					epoll_ctl(wkdpfd, EPOLL_CTL_DEL, wInfo[i].wfd, &evw);
+					close(wInfo[i].wfd);
+					wInfo[i].wfd = 0;
+					wInfo[i].tflag = 0;
+					memset(wInfo[i].ip,0x00,16);
+				}
+			}
+		}
+//		sem_post(&sem_wtcp);
+		nanosleep(&sleeptm,NULL);
+	}
+}
+
+void ResetPClient(int pfd)
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	if (pInfo[pfd].tflag != 0)
+		pInfo[pfd].cntime = (untime.tv_sec - PHOTO_HEART_TIME);	// Reduce the timeout
+	else
+		pInfo[pfd].cntime = (untime.tv_sec - PHOTO_DEAD_TIME);	// Reduce the timeout
+	pInfo[pfd].cflag = -1;
+}
+
+void ResetRClient(int rfd)
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	if (rInfo[rfd].tflag != 0)
+		rInfo[rfd].cntime = (untime.tv_sec - ROBOT_HEART_TIME);	// Reduce the timeout
+	else
+		rInfo[rfd].cntime = (untime.tv_sec - ROBOT_DEAD_TIME);	// Reduce the timeout
+	rInfo[rfd].cflag = -1;
+}
+
+void ResetMClient(int mfd)
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	if (mInfo[mfd].tflag != 0)
+		mInfo[mfd].cntime = (untime.tv_sec - MOBIL_HEART_TIME);	// Reduce the timeout
+	else
+		mInfo[mfd].cntime = (untime.tv_sec - MOBIL_DEAD_TIME);	// Reduce the timeout
+	mInfo[mfd].cflag = -1;
+}
+
+void ResetWClient(int wfd)
+{
+	struct timeval untime;
+	gettimeofday(&untime, NULL);
+	if (wInfo[wfd].tflag != 0)
+		wInfo[wfd].cntime = (untime.tv_sec - WATCH_HEART_TIME);	// Reduce the timeout
+	else
+		wInfo[wfd].cntime = (untime.tv_sec - WATCH_DEAD_TIME);	// Reduce the timeout
+	wInfo[wfd].cflag = -1;
+}
+
+int DelWfdUser(int mfd,int nPos)
+{
+	int max,i,index;
+	for(i=0; i<MWU; i++)
+	{
+		if(whInfo[nPos].mfd[i] == mfd)
+			index = i;
+		if(!whInfo[nPos].mfd[i])
+		{
+			max = i;
+			break;
+		}
+	}
+	if(max < MWU)
+	{
+		whInfo[nPos].mfd[index] = whInfo[nPos].mfd[max];
+		whInfo[nPos].mfd[max] = 0;
+		return 1;
+	}
+	return 0;
+}
+
+int DelMfdIndex(int mfd,int nPos)
+{
+	int max=0,index=0,i;
+	for(i=0; i<MUN; i++)
+	{
+		if(hInfo[nPos].mhiv[i] == mfd)
+			index = i;
+		if(!hInfo[nPos].mhiv[i])
+		{
+			max = i;
+			break;
+		}
+	}
+	max--;
+	if(max < MUN)
+	{
+		hInfo[nPos].mhiv[index] = hInfo[nPos].mhiv[max];
+		hInfo[nPos].mhiv[max] = 0;
+		return 1;
+	}
+	return 0;
+}
+
+int GetMfdIndex(int mfd,int nPos)
+{
+	int i;
+	for(i=0;i<MUN;i++)
+	{
+		if(hInfo[nPos].mhiv[i] == mfd)
+			return i+1;
+	}
+	return 0;
+}
+
+int GetMfdNum(int nPos)
+{
+	int i;
+	for(i=0; i<MUN; i++)
+	{
+		if(hInfo[nPos].mhiv[i] == 0)
+			return i;
+	}
+	return 0;
+}

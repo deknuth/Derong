@@ -1,0 +1,557 @@
+#include "../inc/main.h"
+
+int X86Process(unsigned char* rBuf, int tfd)
+{
+	UpdateRClient(tfd);
+	return (1);
+}
+
+void RobotProcess(int rfd) 	// robot logic processing
+{
+	int rLen, i = 0;
+	int index = 0;
+	int stat = 0;
+	unsigned int pLen = 0;
+	unsigned int version = 0;
+	unsigned char rBuf[1024] = { 0 };
+	unsigned char pack[MAXRPL] = { 0 };
+	while ((rLen = read(rfd, rBuf, 1024)) > 0)
+	{
+		pLen = i = 0;
+		while (1)
+		{
+			while (i < rLen)
+			{
+				if (rBuf[i] == 0xfe || rBuf[i] == 0xfd)		// FIND head
+					break;
+				i++;
+			}
+			if ((i + 8) >= rLen)
+				break;
+			pLen = (unsigned int) rBuf[i+1];
+			pLen <<= 8;
+			pLen += (unsigned int) rBuf[i+2];
+			if ((i + pLen) <= rLen && pLen < MAXRPL && pLen >= 8)
+			{
+				memset(pack, 0x00, MAXRPL);
+				memcpy(pack, &rBuf[i], pLen);
+				if (pack[pLen - 1] == 0xff)		// control packet
+				{
+					version = ((unsigned int) pack[3]) - 128;
+					version <<= 8;
+					version += (unsigned int) pack[4];
+					index = (int) pack[5];
+					index <<= 8;
+					index += (int) pack[6];
+#ifdef RDEBUG
+					//	printf("Robot [%s] index: %X\n", rInfo[rfd].id, index);
+					//	printf("robot: receive pack length: %d\n",rLen);
+#endif
+					if (pack[0] == 0xfe)			// active robot pack
+					{
+						switch (index)
+						{
+						case 1:				// login
+							if (pLen == 30)
+							{
+								if (rInfo[rfd].tflag == 0)
+								{
+									if (RobotReg(rfd, pack) == 0x101)
+										UpdateRClient(rfd);
+								}
+								else	// already register
+								{
+									rRegBack(rfd, 0x101);//robot register back
+									UpdateRClient(rfd);
+								}
+							}
+							break;
+						case 2:				// night
+							break;
+						case 3:				// AC
+							break;
+						case 4:				// curtain
+							break;
+						case 5:				// Audio
+							break;
+						case 6:				// Security
+							break;
+						case 7:				// Robot control
+							break;
+						case 8:				// Video control
+							break;
+						case 0x10:
+							if (pLen == 30)
+								if (RobotInit(rfd, pack) == 0x107)
+									UpdateRClient(rfd);
+							break;
+						case 0x0b:
+							if (pLen == 30)
+								if (RobotAlive(rfd, pack))
+									UpdateRClient(rfd);
+							break;
+						case 0x201:						//remote update request
+							if (rInfo[rfd].tflag)
+							{
+								if (UpdateReq(rfd, version))
+								{
+									rInfo[rfd].uFlag = 1;
+									UpdateRClient(rfd);
+								}
+								else
+									rInfo[rfd].uFlag = 0;
+							}
+							break;
+						case 0x202:							// update program
+							if (rInfo[rfd].uFlag && uOn)
+							{
+								if (UpdateARM(rfd))
+								{
+									lprintf(lfd, INFO,"Update: ARM [%s] program update success!",rInfo[rfd].id);
+									UpdateRClient(rfd);
+								}
+								else
+								{
+									if (IdCrc((unsigned char*) rInfo[rfd].id,16))
+										lprintf(lfd, FATAL,"Update: ARM [%s] program update failed!",rInfo[rfd].id);
+									else
+										lprintf(lfd, FATAL,"Update: ARM connection close cause update failed!");
+								}
+								rInfo[rfd].uFlag = 0;
+							}
+							break;
+
+						case 0x503:
+							r_printf("Update: Update success!");
+							break;
+						case 0xEE01:
+							if (pLen == 16)
+								DateReq(rfd, pack);
+							break;
+
+						default:
+							break;
+						}
+					}
+					else if (pack[0] == 0xfd)	 // robot back packet
+					{
+						stat = (int) pack[5];
+						stat <<= 8;
+						stat += (int) pack[6];
+						switch (index)
+						{
+						case 0x104:			// video set return
+							rCrtBack(rfd, pack, pLen);
+							break;
+						case 0x901:			// alarm
+							rAlarmBack(rfd, pack, pLen);
+							break;
+						case 0x900:
+							if (pLen == 34)
+								AlarmInfo(rfd, pack);		// alarm REG
+							break;
+						case 0x90F:
+							if (pLen == 34)
+								AlarmInfo(rfd, pack);		// alarm MOD
+							break;
+						case 0x07B0:
+							if (pLen == 14)
+								hInfo[rInfo[rfd].hiv].pValid = 1;		// 拍照请求
+							break;
+						case 0x0A00:
+							if (pLen == 56)
+								SwitchInfo(rfd, pack, 1, pLen);	// switch reg
+							break;
+						case 0x0A01:
+							if (pLen == 26)
+								SwitchInfo(rfd, pack, 2 , pLen);	// state upload
+							break;
+						case 0x0A0F:						// switch delete
+							if (pLen == 18)
+								SwitchInfo(rfd, pack, 0, pLen);
+							break;
+						case 0x0B00:						// IR manager
+							IrManage(rfd, 0xB00, pack);
+							break;
+						case 0x0B01:
+							IrManage(rfd, 0xB01, pack);
+							break;
+						case 0x88:
+							rCrtBack(rfd, pack, pLen);
+							break;
+						case 0x701:
+						{
+							if(pLen == 30)
+								rP2pBack(rfd,pack,pLen);
+							break;
+						}
+						case 0x700:		// video part
+						case 0x702:
+						case 0x703:
+						case 0x704:
+						case 0x705:
+						case 0x706:
+						{
+							r_printf("Robot video return: %X\n",index);
+							if(pLen == 30)
+								rCrtBack(rfd, pack, pLen);
+							break;
+						}
+						default:
+							break;
+						}
+					}
+				}
+				else	// protocol error
+					lprintf(lfd, INFO,"Robot: Get a rubbish pack of robot client!");
+				memset(pack, 0x00, pLen);
+				i += (pLen - 1);
+			}
+			else
+				i++;
+		}
+		memset(rBuf,0x00,1024);
+	}
+	if (rLen == -1 && errno != EAGAIN)			// socket closed
+		lprintf(lfd, WARN, "Robot: socket read error!");
+	else if (rLen == 0)
+		ResetRClient(rfd);
+	else	// normal exit
+		;
+	if(errno == EINTR)
+		lprintf(lfd, WARN, "Robot: AAAAAAAAAAAAAAAAAAAAAAAAAAAAA!");
+}
+
+void MoblieProcess(int mfd)
+{
+	int rLen, i = 0;
+	int index = 0;
+	int stat;
+	unsigned int pLen = 0;
+	unsigned int version = 0;
+	unsigned char rBuf[MAXMPL<<1] ={ 0 };
+	unsigned char pack[MAXMPL] ={ 0 };
+	unsigned char sc[4] ={ 0 };			// state context
+	while ((rLen = read(mfd, rBuf, 2048)) > 0)
+	{
+		i = pLen = 0;
+		while (1)
+		{
+			while (i < rLen)
+			{
+				if (rBuf[i] == 0xfe)		// FIND head
+					break;
+				i++;
+			}
+			if ((i+6) >= rLen)
+				break;
+			pLen = (unsigned int)rBuf[i+1];
+			pLen <<= 8;
+			pLen += (unsigned int)rBuf[i+2];
+
+	//		m_printf("Mobile pack length: %d\n", pLen);
+	//		m_printf("Mobile read length: %d\n", rLen);
+			if ((i + pLen) <= rLen && pLen < MAXMPL && pLen > 6)
+			{
+				memset(pack, 0x00, MAXMPL);
+				memcpy(pack, &rBuf[i], pLen);
+			/*
+				 printf("mBuf:\n");
+				 int j = 0;
+				 for (j = 0; j < rLen; j++)
+				 	 printf("%x\t", pack[j]);
+				 printf("\n");
+
+				 printf("Mobile read length: %d\n", rLen);
+				 #endif
+				 */
+				if (pack[pLen - 1] == 0xff)		// control packet
+				{
+					version = (unsigned int) pack[3];
+					version <<= 8;
+					version += (unsigned int) pack[4];
+					index = (int) pack[5];
+					index <<= 8;
+					index += (int) pack[6];
+					mInfo[mfd].version = version;
+
+					switch (index)
+					{
+					case 0x00:
+						if (pLen == 12 + APP_KEY_LEN)
+						{
+							if (MobileAlive(mfd, pack, pLen))
+								UpdateMClient(mfd);
+						}
+						break;
+					case 0x01:				// login
+						if (pLen == 38 + APP_KEY_LEN)
+						{
+							if (mLoginProcess(mfd, pack, pLen))
+								UpdateMClient(mfd);
+						}
+						break;
+					case 0x02:					// electric control
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 20 + APP_KEY_LEN)
+							{
+								memcpy(sc, &pack[9], 4);
+								stat = EquCT(mfd, pack, pLen);
+								GetKey(mInfo[mfd].aKey, pack, pLen);
+								MCtBack(mfd, stat, sc);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x03:	// data request
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 16 + APP_KEY_LEN)
+								DataReq(mfd, pack, pLen);
+						}
+						break;
+					case 0x04:
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 16 + APP_KEY_LEN)// voice info request
+							{
+								GetKey(mInfo[mfd].aKey, pack, pLen);
+								stat = (pack[7] << 8) + pack[8];
+								if (stat == 0x501)
+								{
+									ProtForward(mfd, pack, pLen);
+									UpdateMClient(mfd);
+								}
+								else if (0x502 == stat)
+								{
+									;
+								}
+							}
+						}
+						break;
+					case 0x07:
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 20 + APP_KEY_LEN)
+							{
+								memcpy(sc, &pack[9], 4);
+								stat = RobotCT(mfd, pack, pLen);	// robot control
+								GetKey(mInfo[mfd].aKey, pack, pLen);
+								MCtBack(mfd, stat, sc);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x08:			// user register
+						if (pLen == 56 + APP_KEY_LEN)
+							RegProcess(mfd, pack, pLen);
+						break;
+					case 0x09:			// password modify
+						ModProcess(mfd, pack, index, pLen);
+						break;
+					case 0x0A:			// password forget
+						ModProcess(mfd, pack, index, pLen);
+						break;
+					case 0x11:			// get verify code
+						if (pLen == 28 + APP_KEY_LEN)
+							GetVerifCode(mfd, pack, pLen);
+						break;
+					case 0x12:			// dynamic button
+						DynBut(mfd, pack);
+						break;
+					case 0x88:
+						if(ProtForward(mfd, pack, pLen))
+							;//MCtaBack(mfd, 0x8880);
+						else
+							;//MCtaBack(mfd, 0x8881);
+						break;
+					case 0x104:			// video record
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen > 21 && ((pLen - 8 - APP_KEY_LEN) % 6 == 0))
+							{
+								if (ProtForward(mfd, pack, pLen))
+									UpdateMClient(mfd);
+								else
+									MCtFtBack(mfd, 0x104, 0x301);
+							}
+						}
+						break;
+					case 0x105:		// video time check
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen > 18 && ((pLen - 8 - APP_KEY_LEN) % 3 == 0))
+							{
+								stat = VideoRecCheck(mfd, pack, pLen);
+								UpdateMClient(mfd);
+					//			if (!stat)
+					//				printf("video check failed\n");
+							}
+						}
+						break;
+					case 0x106:						// video name check
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 14 + APP_KEY_LEN)
+							{
+								stat = NameCheck(mfd, pack, pLen);
+								UpdateMClient(mfd);
+							//	if (!stat)
+							//		printf("video name check failed\n");
+							}
+						}
+						break;
+					case 0x501:
+					case 0x505:
+						if(mInfo[mfd].tflag)
+						{
+							if (pLen == 16 + APP_KEY_LEN)
+								RealVideoReq(mfd,pLen,pack);
+						}
+						break;
+					case 0x502:
+						if (mInfo[mfd].tflag)
+						{
+							if(pLen == 8 + APP_KEY_LEN)
+							{
+								if (ProtForward(mfd, pack, pLen) == 0)
+									MCtaBack(mfd, 0x705);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x506:		// 视频心跳包
+						if(mInfo[mfd].tflag)
+						{
+							if(pLen == 16 + APP_KEY_LEN)
+							{
+								if(ProtForward(mfd, pack, pLen) == 0)
+									MCtaBack(mfd, 0x705);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x601:
+						if(mInfo[mfd].tflag)
+						{
+							if(pLen == 14 + APP_KEY_LEN)
+							{
+								stat = ProtForward(mfd, pack, pLen);
+								MCtaBack(mfd, stat);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x602:
+						if(mInfo[mfd].tflag)
+						{
+							if(pLen == 8 + APP_KEY_LEN)
+							{
+								stat = ProtForward(mfd, pack, pLen);
+								MCtaBack(mfd, stat);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0x0A02:		// 灯光
+						if(mInfo[mfd].tflag)
+						{
+							if(pLen == 26 + APP_KEY_LEN)
+							{
+								stat = ProtForward(mfd, pack, pLen);
+								if(stat == 1)
+									MCtaBack(mfd, 2737);
+								else
+									MCtaBack(mfd, 2736);
+								UpdateMClient(mfd);
+							}
+						}
+						break;
+					case 0xA001:		// watch REG
+						if(mInfo[mfd].tflag)
+						{
+							if(pLen == 22 + APP_KEY_LEN)
+								mWatchReg(mfd, pack, pLen);
+						}
+						break;
+					case 0xA002:		// watch sos
+						if(mInfo[mfd].tflag)
+						{
+							if (pLen == 26 + APP_KEY_LEN)
+							{
+								if (!mSosSet(mfd, pack, pLen))
+									lprintf(lfd, WARN,"Mobile[%x]: Watch SOS setting failed!",mInfo[mfd].version);
+							}
+						}
+						break;
+					case 0xA003:
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 8 + APP_KEY_LEN)
+							{
+								GetKey(mInfo[mfd].aKey, pack, pLen);
+								mWatchLocal(mfd);
+							}
+						}
+						break;
+					case 0xA005:
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen == 8 + APP_KEY_LEN)
+								mSosCheck(mfd, pack, pLen);
+						}
+						break;
+					case 0xA102:			// old watch para set
+						if (mInfo[mfd].tflag)
+						{
+							if (pLen ==(14 + APP_KEY_LEN) || pLen == (26 + APP_KEY_LEN))
+								oParaSet(mfd, pack, pLen);
+						}
+						break;
+					case 0xAA02:			// elect fence
+						if(eFenceSet(mfd,pack,pLen) == 0)
+						{
+							m_printf("watch fence setting failed!\n");
+						}
+						break;
+					case 0xAA03:			// elect on/off
+						eFenceSwitch(mfd,pack,pLen);
+						break;
+					case 0x9B0:
+						if (pLen == 14 + APP_KEY_LEN)
+						{
+							pack[0] = 0xFD;
+							if (!ProtForward(mfd, pack, pLen))
+							{
+								pack[5] = 0xFF;
+								pack[6] = 0xFF;
+							}
+							_m_write(mfd, pack, 14 + APP_KEY_LEN);
+							UpdateMClient(mfd);
+						}
+						break;
+					default:			// error
+						lprintf(lfd, WARN, "Mobile[%x]: Get a rubbish pack!",mInfo[mfd].version);
+						break;
+					}
+				}
+				else
+					// protocol error
+					lprintf(lfd, WARN, "Mobile[%x]: Get a rubbish pack from [%s]", mInfo[mfd].version, mInfo[mfd].ip);
+				memset(pack, 0x00, pLen);
+				i += (pLen - 1);
+			}
+			else
+				i++;
+		}
+		memset(rBuf, 0x00, rLen);
+	}
+	if (rLen == -1 && errno != EAGAIN)			// socket closed
+		lprintf(lfd, WARN, "Mobile[%x]: socket read error!", mInfo[mfd].version);
+	else if (rLen == 0)
+		ResetMClient(mfd);
+	else	// normal exit
+		;
+}
+

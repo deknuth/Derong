@@ -1,0 +1,13 @@
+/*
+ * data.h
+ *
+ *  Created on: 2015年1月30日
+ *      Author: Lovenix
+ */
+
+#ifndef DATA_H_
+#define DATA_H_
+
+extern int	DataProcess(RINFO rinfo,int type,int node);
+
+#endif /* DATA_H_ */

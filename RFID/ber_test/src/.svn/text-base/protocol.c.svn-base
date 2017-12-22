@@ -1,0 +1,62 @@
+/*
+ * protocol.c
+ *
+ *  Created on: 2016年6月16日
+ *      Author: Administrator
+ */
+#include "../inc/main.h"
+void CreatHead(unsigned char *pack,unsigned char len,unsigned int stat)
+{
+	*(pack++) = 0xFD;
+	*(pack++) = 0x00;
+	*(pack++) = len;
+	*(pack++) = 0x00;
+	*(pack++) = 0x01;
+	if(stat > 0)
+	{
+		*(pack++) = ((stat&0xFF00)>>8);
+		*pack = (stat&0xFF);
+		pack += (len-7);
+	}
+	else
+		pack += (len-6);
+	*pack = 0xFF;
+}
+
+int ProtForward(int mfd,unsigned char* rBuf,int rLen)		// Protocol forwarding
+{
+	int rfd;
+	rfd = GetRFD(mfd);
+	GetKey(mInfo[mfd].aKey,rBuf,rLen);
+	if(rfd != 0)
+	{
+		if(!_write(rfd,rBuf,rLen))
+		{
+			ResetRClient(rfd);
+			return 0;
+		}
+		else
+			return 1;
+	}
+	else
+		return 0;
+	return 1;
+}
+
+int mBackJson(char* rid,JSN code,int flag)
+{
+	JsonCheck(0,rid,0,code,flag);
+	return 1;
+}
+
+int mBackStat(char *rid,unsigned char *pack,int len)
+{
+	int mNum, nPos, i;
+	nPos = GetHashTablePos(rid, RidHash, MHI);
+	mNum = GetMfdNum(nPos);
+
+	for (i = 0; i < mNum; i++)			// back state to user that all client
+		_m_write(hInfo[nPos].mhiv[i], pack, len);
+	return 1;
+}
+

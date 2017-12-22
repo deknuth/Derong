@@ -1,0 +1,16 @@
+/*
+ * protocol.h
+ *
+ *  Created on: 2016年6月16日
+ *      Author: Lovenix
+ */
+#include "user.h"
+#ifndef INC_PROTOCOL_H_
+#define INC_PROTOCOL_H_
+
+
+extern void CreatHead(unsigned char *pack,unsigned char len,unsigned int stat);
+extern int ProtForward(int mfd,unsigned char* rBuf,int rLen);			// Protocol forwarding
+extern int mBackJson(char* rid,JSN code,int flag);
+extern int mBackStat(char *rid,unsigned char *pack,int len);
+#endif /* INC_PROTOCOL_H_ */
