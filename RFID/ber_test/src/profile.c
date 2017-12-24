@@ -22,20 +22,22 @@ int DefaultConfigSet(void)			// 生成默认配置文件
 
 int GetConfigArg(int num, char* buf)		// 获取某行配置参数
 {
-	int i;
+	int i = 0;
+	long temps = 0;
+	char* p = NULL;
 	FILE* fp;
 	char temp[32];
 	fp = fopen(CONFIG_FILE, "rb");
 	for (i = 0; i < num - 1; i++)
 	{
-		fgets(&temp[0], 32, fp);
-		ftell(fp);                    // 设置文件偏移量
+		p = fgets(&temp[0], 32, fp);
+		temps = ftell(fp);                    // 设置文件偏移量
 		memset(temp, 0x00, 32);
 		if (feof(fp) != 0)
 			break;
 	}
 	i = 0;
-	fgets(&temp[0], 32, fp);
+	p = fgets(&temp[0], 32, fp);
 	while (temp[i++] != 0x09)
 		;
 	while (temp[i] != 0x09)
@@ -48,6 +50,8 @@ int GetConfigArg(int num, char* buf)		// 获取某行配置参数
 int ConfigModif(int num, char* con)		// 修改配置文件
 {
 	int i, j;
+	long temps = 0;
+	char* p = NULL;
 	FILE* fp;
 	FILE* ftemp;
 	char temp[32] = { 0 };
@@ -56,14 +60,14 @@ int ConfigModif(int num, char* con)		// 修改配置文件
 	ftemp = tmpfile();
 	for (i = 0; i < num - 1; i++)
 	{
-		fgets(&temp[0], 32, fp);
-		ftell(fp);                    // 设置文件偏移量
+		p = fgets(&temp[0], 32, fp);
+		temps = ftell(fp);                    // 设置文件偏移量
 		fprintf(ftemp, "%s", temp);
 		memset(temp, 0x00, 32);
 		if (feof(fp) != 0)
 			break;
 	}
-	fgets(&temp[0], 32, fp);
+	p = fgets(&temp[0], 32, fp);
 	j = i = 0;
 	while (temp[i] != 0x09)
 		head[j++] = temp[i++];
@@ -73,8 +77,8 @@ int ConfigModif(int num, char* con)		// 修改配置文件
 	fprintf(ftemp, "%s", temp);
 	while (1)
 	{
-		fgets(&temp[0], 32, fp);
-		ftell(fp);                    // 设置文件偏移量
+		p = fgets(&temp[0], 32, fp);
+		temps = ftell(fp);                    // 设置文件偏移量
 		fprintf(ftemp, "%s", temp);
 		memset(temp, 0x00, 32);
 		if (feof(fp) != 0)
@@ -82,15 +86,15 @@ int ConfigModif(int num, char* con)		// 修改配置文件
 	}
 	fclose(fp);
 	if (remove(CONFIG_FILE) == -1)
-		lprintf(lfd, FATAL, "Profile: Remove configure file error!");
+		printf("Profile: Remove configure file error!\n");
 	if ((fp = fopen(CONFIG_FILE, "w")) == NULL)
-		lprintf(lfd, FATAL, "Profile: Create new file error!");
+		printf("Profile: Create new file error!\n");
 	if (fseek(ftemp, 0, SEEK_SET) != 0)
-		lprintf(lfd, FATAL, "Profile: lseek error!");
+		printf("Profile: lseek error!\n");
 	while (1)
 	{
-		fgets(&temp[0], 32, ftemp);
-		ftell(ftemp);                    // 设置文件偏移量
+		 p = fgets(&temp[0], 32, ftemp);
+		 temps = ftell(ftemp);                    // 设置文件偏移量
 		fprintf(fp, "%s", temp);
 		memset(temp, 0x00, 32);
 		if (feof(ftemp) != 0)

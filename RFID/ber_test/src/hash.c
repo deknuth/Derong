@@ -6,7 +6,7 @@
  */
 
 #include "../inc/main.h"
-static unsigned long HashString( char *lpszFileName, unsigned int dwHashType);
+static unsigned long HashString(unsigned char *lpszFileName, unsigned int dwHashType,int len);
 unsigned int cryptTable[0x500];
 void CryptTables()
 {
@@ -25,13 +25,14 @@ void CryptTables()
     }
 }
 
-unsigned long HashString(char *lpszFileName, unsigned int dwHashType)
+unsigned long HashString(unsigned char *lpszFileName, unsigned int dwHashType,int len)
 {
-    unsigned char *key  = (unsigned char *)lpszFileName;
+    unsigned char *key  = lpszFileName;
     unsigned long seed1 = 0x7FED7FED;
     unsigned long seed2 = 0xEEEEEEEE;
     int ch;
-    while(*key != 0)
+ //   while(*key != 0)
+	 while(len--)
     {
         ch = toupper(*key++);
         seed1 = cryptTable[(dwHashType << 8) + ch] ^ (seed1 + seed2);
@@ -55,12 +56,12 @@ int FreeHash(struct HashItem* hash)
 	return 1;
 }
 
-int InsertHash(char *lpszString, struct HashItem *lpTable, unsigned int nTableSize)
+int InsertHash(unsigned char *lpszString, struct HashItem *lpTable, unsigned int nTableSize,int len)
 {
     int HASH_OFFSET = 0, HASH_A = 1, HASH_B = 2;
-    unsigned long nHash = HashString(lpszString, HASH_OFFSET);
-    unsigned long nHashA = HashString(lpszString, HASH_A);
-    unsigned long nHashB = HashString(lpszString, HASH_B);
+    unsigned long nHash = HashString(lpszString, HASH_OFFSET,len);
+    unsigned long nHashA = HashString(lpszString, HASH_A,len);
+    unsigned long nHashB = HashString(lpszString, HASH_B,len);
     unsigned long nHashStart = nHash % nTableSize;
     unsigned long nHashPos = nHashStart;
     while (lpTable[nHashPos].bExists)
@@ -75,12 +76,12 @@ int InsertHash(char *lpszString, struct HashItem *lpTable, unsigned int nTableSi
 	return nHashPos;
 }
 
-int GetHashTablePos(char *lpszString,struct HashItem* lpTable, unsigned int nTableSize)
+int GetHashTablePos(unsigned char *lpszString,struct HashItem* lpTable, unsigned int nTableSize,int len)
 {
     int HASH_OFFSET = 0, HASH_A = 1, HASH_B = 2;
-    unsigned long nHash = HashString(lpszString, HASH_OFFSET);
-    unsigned long nHashA = HashString(lpszString, HASH_A);
-    unsigned long nHashB = HashString(lpszString, HASH_B);
+    unsigned long nHash = HashString(lpszString, HASH_OFFSET,len);
+    unsigned long nHashA = HashString(lpszString, HASH_A,len);
+    unsigned long nHashB = HashString(lpszString, HASH_B,len);
     unsigned long nHashStart = nHash % nTableSize;
 	unsigned long nHashPos = nHashStart;
     while (lpTable[nHashPos].bExists)
@@ -95,12 +96,12 @@ int GetHashTablePos(char *lpszString,struct HashItem* lpTable, unsigned int nTab
     return 0;
 }
 
-int DelHashTablePos(char *lpszString,struct HashItem* lpTable, unsigned int nTableSize)
+int DelHashTablePos(unsigned char *lpszString,struct HashItem* lpTable, unsigned int nTableSize,int len)
 {
     int HASH_OFFSET = 0, HASH_A = 1, HASH_B = 2;
-    unsigned int nHash = HashString(lpszString, HASH_OFFSET);
-    unsigned int nHashA = HashString(lpszString, HASH_A);
-    unsigned int nHashB = HashString(lpszString, HASH_B);
+    unsigned int nHash = HashString(lpszString, HASH_OFFSET,len);
+    unsigned int nHashA = HashString(lpszString, HASH_A,len);
+    unsigned int nHashB = HashString(lpszString, HASH_B,len);
     unsigned int nHashStart = nHash % nTableSize, nHashPos = nHashStart;
 
     while (lpTable[nHashPos].bExists)

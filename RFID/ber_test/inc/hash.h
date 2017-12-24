@@ -4,9 +4,9 @@
 
 extern void  CryptTables(); 							//
 extern struct HashItem* inithashtable(int size);
-extern int InsertHash(char *lpszString, struct HashItem *lpTable, unsigned int nTableSize);
-extern int GetHashTablePos(char *lpszString, struct HashItem* lpTable,unsigned int nTableSize); //
-extern int DelHashTablePos(char *lpszString, struct HashItem* lpTable,unsigned int nTableSize); //
+extern int InsertHash(unsigned char *lpszString, struct HashItem *lpTable, unsigned int nTableSize,int len);
+extern int GetHashTablePos(unsigned char *lpszString, struct HashItem* lpTable,unsigned int nTableSize,int len); //
+extern int DelHashTablePos(unsigned char *lpszString, struct HashItem* lpTable,unsigned int nTableSize,int len); //
 extern int FreeHash(struct HashItem* hash);
 struct HashItem{
 	int bExists;
