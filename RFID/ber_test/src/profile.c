@@ -16,6 +16,7 @@ int DefaultConfigSet(void)			// 生成默认配置文件
 	fprintf(fp, "%s", "ROBOT_PORT\t4016\t\r\n");
 	fprintf(fp, "%s", "MOBILE_PORT\t4020\t\r\n");
 	fprintf(fp, "%s", "CLI_TIME_OUT\t15\t\r\n");
+	fprintf(fp, "%s", "COM\t/dev/ttyUSB0\t\r\n");
 	fclose(fp);
 	return 1;
 }

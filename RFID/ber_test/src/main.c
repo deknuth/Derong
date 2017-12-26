@@ -252,14 +252,12 @@ int GetEpc(RFID_DATA *epc)
 	return 1;
 }
 
-
-
 int main(void)
 {
 	int i;
 	rInfo = (PMDYINFO)malloc(sizeof(MDYINFO)*MHI);
 	memset(rInfo,0x00,sizeof(rInfo));
-/*
+
 	setbuf(stdout,NULL);
 	if(FileCheck(CONFIG_FILE) == 0)		// 检测配置文件
 	{
@@ -269,12 +267,14 @@ int main(void)
 			exit(0);
 		}
 	}
-	*/
+	char test[128] = {0};
+	GetConfigArg(5,test);
+	printf("get line: %s\n",test);
+
 	cfd = open_com("/dev/ttyUSB0");
 	CryptTables();				// 初始化hash
 	RfidHash = inithashtable(MHI);
-//	pthread_create(&id, NULL, DataProcess, (void *)0);
-	RfidHash = inithashtable(MHI);
+	
 	while(1)
 	{	
 		RFID_DATA *epc = (RFID_DATA *)malloc(sizeof(RFID_DATA));
@@ -297,8 +297,6 @@ int main(void)
 	}
 	free(rInfo);
 	FreeHash(RfidHash);
-//	pthread_join(id, (void **) 0);
-
 	return 0;
 }
 
