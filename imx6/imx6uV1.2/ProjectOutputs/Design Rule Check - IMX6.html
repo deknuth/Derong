@@ -1,0 +1,330 @@
+<html>
+<head>
+<META http-equiv="Content-Type" content="text/html; charset=UTF-16">
+<style type="text/css">
+		h1, h2, h3, h4, h5, h6 {
+			font-family : sans-serif;
+			color : white;
+			background-color : #21489e;
+			padding: 0.3em;
+		}
+		body {
+			font-family : verdana;
+		}
+		td, th {
+			padding: 0.5em;
+			text-align : center;
+			width : 18%;
+		}
+		th {
+			background-color : #A6CAF0;
+
+		}
+		th.column1, td.column1 {
+			text-align: left;
+			width : auto;
+		}
+		table {
+			width : 100%;
+		}
+		
+		.DRC_summary_header {							
+			padding-bottom : 0.1em;
+			border : 0px solid black;							
+			width: 100%;
+                        align: right;
+                        
+		}
+
+		.DRC_summary_header_col1, 
+		.DRC_summary_header_col2, 
+		.DRC_summary_header_col3
+		{
+			color : black;
+			font-size:150%;
+                        padding : 0em;
+			padding-top : 0.2em;
+			padding-bottom 0.2: 0em;
+			border : 0px solid black;
+			width : auto;
+			vertical-align: top;
+			font-weight: bold;				
+		}
+		
+		.DRC_summary_header_col1 	
+		{		                       
+			text-align: right;
+                        width: auto;	
+		}
+
+		.DRC_summary_header_col2 	
+		{		
+			text-align: center;	
+		}
+
+		.DRC_summary_header_col3 	
+		{		
+			text-align: left;	
+		}
+
+
+		
+		.header_holder
+		{
+		Width = 100%;
+		border = 0px solid green;
+		padding = 0;
+		}
+		
+		
+		
+		.front_matter, .front_matter_column1, .front_matter_column2, .front_matter_column3
+                {
+			left:0;
+			top:0;
+			padding-top : 0.1em;			
+			border : 0px solid black;
+			width : 100%;
+			vertical-align: top
+
+		}
+		.front_matter {	
+			
+			margin-top: 5px;
+ 			margin-left: 0px;					 			
+ 			horizontal-align: left;
+		}
+				
+		
+		.front_matter_column1 {
+			width : 10em;	
+			text-align  : right;
+			padding-right:0.1em;
+			
+		}
+		
+		.front_matter_column2 {
+                        width: 0.1em;
+			align: center;
+			text-align : center;
+			margin-right  : 0.1em;	
+			margin-left   : 0.1em;
+		}
+		.front_matter_column3 {
+			width         : auto;  
+			text-align    : left;	
+			margin-right  : 0.5em;				
+		}
+		
+		.total_column1, .total_column {
+			font-weight : bold;
+		}
+		.total_column1 {
+			text-align : right;
+		}
+		.warning, .error {
+			color : red;
+			font-weight : bold;
+		}
+		tr.onmouseout_odd {
+			background-color : #EEEEE0 
+		}
+		tr.onmouseout_even { 
+			background-color : #F3F3E3   
+		}
+		tr.onmouseover_odd, tr.onmouseover_even { 
+			background-color : lightYellow
+		} 
+		a:link, a:visited, .q a:link,.q a:active,.q {
+			color: #21489e; 
+		}
+		a:link.callback, a:visited.callback { 
+			color: #008000 
+		}
+		a:link.customize, a:visited.customize {
+			color: #C0C0C0;
+			position: absolute; 
+			right: 10px;
+		}	
+		p.contents_level1 {
+			font-weight : bold;
+			font-size : 110%;
+			margin : 0.5em;
+		}
+		p.contents_level2 {
+			position : relative;
+			left : 20px;
+			margin : 0.5em;
+		}
+	</style><script type="text/javascript">
+		function coordToMils(coord) {
+			var number = coord / 10000;
+			
+			if (number != number.toFixed(3))
+				number = number.toFixed(3);
+
+			return number + 'mil'
+		}
+
+		function coordToMM(coord) {
+			var number = 0.0254 * coord / 10000;
+			
+			if (number != number.toFixed(4))
+				number = number.toFixed(4);
+			
+			return number + 'mm'
+		}
+	
+		function convertCoord(coordNode, units) {
+			for (var i = 0; i < coordNode.childNodes.length; i++) {
+				coordNode.removeChild(coordNode.childNodes[i]);
+			}
+
+			var coord = coordNode.getAttribute('value');
+			if (coord != null) {
+				if (units == 'mm') {
+					textNode = document.createTextNode(coordToMM(coord));
+					coordNode.appendChild(textNode);
+				} else if (units == 'mil') {
+					textNode = document.createTextNode(coordToMils(coord));		
+					coordNode.appendChild(textNode);	
+				}
+			}
+		}
+	
+		function convertUnits(unitNode, units) {
+			for (var i = 0; i < unitNode.childNodes.length; i++) {
+				unitNode.removeChild(unitNode.childNodes[i]);		
+			}
+		
+			textNode = document.createTextNode(units); 
+			unitNode.appendChild(textNode);
+		}
+	
+		function changeUnits(radio_input, units) {
+			if (radio_input.checked) {
+			
+				var elements = document.getElementsByName('coordinate');
+				if (elements) {
+					for (var i = 0; i < elements.length; i++) {
+						convertCoord(elements[i], units);
+					}
+				}
+	
+				var elements = document.getElementsByName('units');
+				if (elements) {
+					for (var i = 0; i < elements.length; i++) {
+						convertUnits(elements[i], units);
+					}
+				}
+			}
+		}
+	</script></head>
+<body onload=""><img ALT="Altium" src="
+			file://C:\PROGRAM FILES\ALTIUM DESIGNER 6\Templates\AD-rgb_logo_223x64.gif
+		"><a href="dxpprocess://Client:SetupPreferences?Server=PCB|PageName=Reports" class="customize"><acronym title="dxpprocess://Client:SetupPreferences?Server=PCB|PageName=Reports">customize</acronym></a><h1>Design Rule Verification Report</h1>
+<table class="header_holder">
+<td Style="width:70%">
+<table class="front_matter">
+<tr class="front_matter">
+<td class="front_matter_column1">Date</td>
+<td class="front_matter_column2">:</td>
+<td class="front_matter_column3">2018/1/1</td>
+</tr>
+<tr class="front_matter">
+<td class="front_matter_column1">Time</td>
+<td class="front_matter_column2">:</td>
+<td class="front_matter_column3">21:13:51</td>
+</tr>
+<tr class="front_matter">
+<td class="front_matter_column1">Elapsed Time</td>
+<td class="front_matter_column2">:</td>
+<td class="front_matter_column3">00:00:00</td>
+</tr>
+<tr class="front_matter">
+<td class="front_matter_column1">Filename</td>
+<td class="front_matter_column2">:</td>
+<td class="front_matter_column3"><a href="file:///F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc" class="file"><acronym title="F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc">F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc</acronym></a></td>
+</tr>
+</table>
+</td>
+<td Style="Width:30%">
+<table class="DRC_summary_header">
+<tr>
+<td class="DRC_summary_header_col1">Warnings</td>
+<td class="DRC_summary_header_col2">:</td>
+<td class="DRC_summary_header_col3" style="color : red">1</td></tr>
+<tr>
+<td class="DRC_summary_header_col1">Rule Violations</td>
+<td class="DRC_summary_header_col2">:</td>
+<td class="DRC_summary_header_col3" style="color : red">1</td></tr>
+</table>
+</td>
+</table>
+<hr><a name="IDMKMVNM2I2ON5AEOHWYGYFLPTWRTC53NBXZZIGKEQWHR2YETX1G"><h2>Summary</h2></a><table>
+<tr>
+<th class="column1">Warnings</th>
+<th class="column2">Count</th>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1"><a href="#IDX4KTPNIM3CV5HVILXVW50F5YIOVM445AJCTGWAL3EBCVMM0TLYFL">Split plane(s) intersect Keepout object(s)</a></td>
+<td class="column2">1</td>
+</tr>
+<tr>
+<td style="font-weight : bold; text-align : right" class="column1">Total</td>
+<td style="font-weight : bold" class="column2">1</td>
+</tr>
+</table><br><table>
+<tr>
+<th class="column1">Rule Violations</th>
+<th class="column2">Count</th>
+</tr>
+<tr class="onmouseout_even" onmouseover="className = 'onmouseover_even'" onmouseout="className = 'onmouseout_even'">
+<td class="column1"><a href="#IDYVGMORDM1KSDHBOKKVF0YI5NQFNVXYAMU0DADYJ0YUHNVTYKFSNM">Short-Circuit Constraint (Allowed=No) (All),(All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1"><a href="#ID53BCLI2FN3NGCZLGI1YXIDJH3D5FOJRWOYM2OIDGGTWXLPTLTXFC">Broken-Net Constraint ( (All) )</a></td>
+<td class="column2">1</td>
+</tr>
+<tr class="onmouseout_even" onmouseover="className = 'onmouseover_even'" onmouseout="className = 'onmouseout_even'">
+<td class="column1"><a href="#ID2AU2V43DLDJLBWINNU1E1N3O2K10MDELX3GKEKJ5X5TX4J25JI1J">Clearance Constraint (Gap=15mil) (Disabled)(All),(All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1"><a href="#IDQYGLZXBIQST2DU2XD2SJS0DJ1CY5EH1LUFQDCFHNCME1W5TSFHRG">Power Plane Connect Rule(Direct Connect )(Expansion=20mil) (Conductor Width=12mil) (Air Gap=10mil) (Entries=4) (All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr class="onmouseout_even" onmouseover="className = 'onmouseover_even'" onmouseout="className = 'onmouseout_even'">
+<td class="column1"><a href="#IDFUGXLE5WYGKAEWYGSUXMDXH52KXKTPCGOJWWCUK22Y3YVHGVC4XN">Width Constraint (Min=6mil) (Max=200mil) (Preferred=10mil) (All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1"><a href="#IDQPCEZJHNHHN4JHPXV1RDXXX1UKTS1JUIM4IN51LGT3LOCBC32YII">Height Constraint (Min=0mil) (Max=1000mil) (Prefered=500mil) (All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr class="onmouseout_even" onmouseover="className = 'onmouseover_even'" onmouseout="className = 'onmouseout_even'">
+<td class="column1"><a href="#IDERNVSOAQ3U5XGRKSHZ0FL1AR2GSDQORZEP0102BUMKNULVZXNVUN">Hole Size Constraint (Min=1mil) (Max=300mil) (All)</a></td>
+<td class="column2">0</td>
+</tr>
+<tr>
+<td style="font-weight : bold; text-align : right" class="column1">Total</td>
+<td style="font-weight : bold" class="column2">1</td>
+</tr>
+</table><br><hr><a name="ID0BOPZOQTP0WKDWKYYYOKZJHKXKWBL004N05OFPKTJWA34SMGQTMN"><h2>Warnings</h2></a><a name="IDX4KTPNIM3CV5HVILXVW50F5YIOVM445AJCTGWAL3EBCVMM0TLYFL"><table>
+<tr>
+<th style="text-align : left" colspan="1" class="warning">Split plane(s) intersect Keepout object(s)</th>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1">VCC</td>
+</tr>
+</table></a><a href="#top">Back to top</a><br><br><hr><a name="ID53BCLI2FN3NGCZLGI1YXIDJH3D5FOJRWOYM2OIDGGTWXLPTLTXFC"><table>
+<tr>
+<th style="text-align : left" colspan="1" class="rule">Broken-Net Constraint ( (All) )</th>
+</tr>
+<tr class="onmouseout_odd" onmouseover="className = 'onmouseover_odd'" onmouseout="className = 'onmouseout_odd'">
+<td class="column1"><a href="dxpprocess://PCB:Zoom?document=F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc;viewname=PCBEditor;Action=Area|Location1.X=241.852mil|Location2.X=7289.951mil|Location1.Y=957.135mil|Location2.Y=5468.791mil|Absolute=True" class="callback"><acronym title="dxpprocess://PCB:Zoom?document=F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc;viewname=PCBEditor;Action=Area|Location1.X=241.852mil|Location2.X=7289.951mil|Location1.Y=957.135mil|Location2.Y=5468.791mil|Absolute=True">Net GND</acronym></a><br> is broken into 3 sub-nets. Routed To 98.85%<br>
+     Subnet : U9-11    U9-21    J7-8     J7-4     P1-5     P1-28    P1-18    P1-6     P1-17    P1-26    <br>              P1-25    J8-8     J8-4     J6-5     P2-2     P10-2    P6-1     P6-1     P6-1     P6-1     P6-1     <br>              J4-5     J3-5     R37-1    U6-37    R26-2    J1-38    C46-1    C37-1    U1-9     D37-1    C55-2    <br>              D34-1    U9-17    U9-6     U9-9     C60-1    C61-1    C62-1    R43-2    C36-2    C41-1    D5-K     <br>              R30-2    L2-1     J21-9    J21-15   J21-21   J21-27   J21-29   J21-35   J21-37   J21-4    C110-2   <br>              C109-2   C111-2   R87-1    R88-1    D30-1    D31-2    D32-2    J1-33    C1-2     J20-1    C113-2   <br>              C2-2     U25-11   J2-5     J2-6     J2-34    D29-1    D26-2    D28-2    C44-1    C42-1    C19-2    <br>              Q2-3     Q1-3     C35-1    C32-1    J1-59    C22-1    U4-3     U3-5     BT1-2    J2-55    L3-1     <br>              C50-1    C40-1    C23-2    J2-92    C47-1    J10-6    J9-5     U1-7     D6-1     D35-1    D18-2    <br>              D19-2    R39-1    C64-1    X1-4     D25-1    D27-1    U6-11    J21-26   J21-43   R25-2    C34-1    <br>              C112-2   C52-2    C29-2    J1-89    C49-1    U8-15    D36-1    C57-2    C59-1    C58-1    C30-1    <br>              J21-18   J21-34   J21-40   J21-50   C31-1    R27-2    C53-1    C48-1    K1-1     K1-2     D23-1    <br>              C38-1    X1-2     C54-1    D22-2    D24-2    R28-1    C43-1    C45-1    C39-1    D20-2    C27-2    <br>              D21-2    U5-15    D17-1    P4-2     C8-2     R5-1     D1-A     D7-A     C5-2     D3-K     C88-2    <br>              C86-2    C87-2    C17-2    D8-K     P9-2     D33-1    C18-2    U7-2     R8-1     C3-2     C13-1    <br>              C14-1    D16-1    R15-2    DW2-A    DW1-A    U2-1     R59-1    <br>     Subnet : R12-1    C12-2    <br>     Subnet : R1-1     C10-1    <br></td>
+</tr>
+</table></a><a href="#top">Back to top</a><br><br></body>
+</html>

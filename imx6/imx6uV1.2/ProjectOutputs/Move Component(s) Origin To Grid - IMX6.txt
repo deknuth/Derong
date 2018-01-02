@@ -1,0 +1,264 @@
+Move Component(s) Origin to Grid
+Filename     : F:\GitHUB\Derong\imx6\imx6uV1.2\IMX6.PcbDoc
+Date         : 2018/1/1
+Time         : 20:45:49
+Time Elapsed : 00:00:00
+
+
+    SMT SIP Component J10-TF-CARD (3605.48mil,-370mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P2-POWIN (5408.48mil,-2880mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D7-SS54 (5075.48mil,-1950mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component K1-KEY (4798.48mil,-880mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J3-DB9 (5674.48mil,-1026mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U7-TJA1050 (4658.48mil,-2670mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R12-20K (4453.48mil,-2795mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R8-1K (4773.48mil,-2605mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R7-10K (4508.48mil,-2795mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R6-120 (4773.48mil,-2885mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P10-CAN (5408.48mil,-2475mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component DW2-SMAJ6.8CA (5260mil,-2645mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component DW1-SMAJ6.8CA (5130mil,-2645mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C14-22pF (4983.48mil,-2810mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C13-22pF (4983.48mil,-2685mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C12-0.1uF (4563.48mil,-2795mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R104-0R(NC) (822.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R105-0R(NC) (879.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J8-USB-D (3034.48mil,-3748mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C11-0.1uF (5243.48mil,-1250mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P4-POW-IN (5669.48mil,-3512mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component U1-TPS54331 (4760.48mil,-1730mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R5-Res Semi (4900.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C10-Cap (4790.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C9-Cap (4844.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C8-Cap (4623.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U2-TPS562201 (5282.48mil,-1372mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R59-10K (5470.48mil,-1379mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R58-33K (5470.48mil,-1435mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R4-10K (5470.48mil,-1321mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L11-3.3uH (5071.48mil,-1370mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C87-47uF (4926.48mil,-1369mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C86-47uF (4838.48mil,-1369mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C17-10uF (5278.48mil,-1589mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D29-ESD (3113.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D32-ESD (1729.48mil,-1888mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D31-ESD (1799.48mil,-2038mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D30-ESD (1729.48mil,-2038mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D28-ESD (3041.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D27-ESD (2709.48mil,-3508mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D26-ESD (2968.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D25-ESD (2599.48mil,-3508mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D24-ESD (2399.48mil,-3523mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D23-ESD (2209.48mil,-3523mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D22-ESD (2314.48mil,-3523mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D21-ESD (5112.48mil,-3630mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D20-ESD (4988.48mil,-3630mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D19-ESD (5558.48mil,-814mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D18-ESD (5560.48mil,-933mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D17-ESD (5152.48mil,-2986mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D16-ESD (5152.48mil,-2925mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L2-电感 (259.48mil,-2858mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C88-0.1uF (4762.48mil,-1387mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P9-RST (5858.48mil,-1650mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J5-48F-01GY2DPL2NL (3709.48mil,-3498mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component J2-CON50X2 (3164.795mil,-790.717mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component J1-CON50X2 (3077mil,-2523mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C3-1000uF/25V (4828.48mil,-2310mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component U9-TPS61194 (199.48mil,-3468mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R44-Res1 (54.48mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R43-Res1 (-49.52mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R42-Res1 (106.48mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R41-Res1 (69.48mil,-3328mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R40-Res1 (2.48mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R39-Res1 (158.48mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R38-Res1 (339.48mil,-3798mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R37-Res1 (339.48mil,-3853mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT SIP Component P5-Header 6 (334.48mil,-4073mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L6-Inductor (379.48mil,-3403mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C64-Cap (210.48mil,-3208mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C63-Cap (339.48mil,-3908mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C62-Cap (509.48mil,-3798mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C61-Cap (509.48mil,-3883mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C60-Cap (509.48mil,-3968mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C59-Cap (369.48mil,-3263mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C58-Cap (454.48mil,-3263mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C57-Cap (294.48mil,-3273mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U8-SP3232EEN (5201.48mil,-909mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C56-0.1uF (5431.48mil,-879mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C55-0.1uF (5431.48mil,-754mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C7-0.1uF (5193.48mil,-1145mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C6-0.1uF (5431.48mil,-1004mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D8-发光二极管 (5518.48mil,-1590mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT SIP Component J9-USB_AB (4342.48mil,-225mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component X1-24M (2148.48mil,-3254mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U25-RX8025-SA (2357.48mil,-1379mil) on Top Layer - Component pads are OFF grid. No action taken.
+    LCC Component U6-USB2514BI (2659.48mil,-3248mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U5-SP3232EEN (4813.48mil,-3280mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component U4-SN74LVC1G04 (4234.48mil,-2103mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SOIC Component U3-MAX485ESA (4114.48mil,-1828mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R116-0(NC) (2499.48mil,-1153mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R115-10K (1922.48mil,-1179mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R114-10K (1922.48mil,-1274mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R112-4.7K(NC) (2499.48mil,-1293mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R93-10K (2793.48mil,-1205mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R36-10K (3835.48mil,-2320mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R35-10K (3917.48mil,-2320mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R34-33R (4292.48mil,-390mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R33-33R (4347.48mil,-390mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R31-1M (2318.48mil,-3215mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R30-100K (2301.48mil,-3048mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R29-1K (2301.48mil,-2988mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R28-12K 1% (2343.48mil,-3370mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R27-100K (2788.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R26-100K (2678.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R25-100K (2623.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R24-100K (2513.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R23-10K (2843.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R22-10K (2898.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R21-10K (2958.48mil,-3190mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R20-10K (2958.48mil,-3300mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R19-0R (2458.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R18-20K (4114.48mil,-2258mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R17-1K (5223.48mil,-3048mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R16-120(NC) (5253.48mil,-2954mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R15-1K (5222.48mil,-2860mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R14-4.7K (3768.48mil,-3260mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R13-4.7K (3729.48mil,-3083mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R11-1K (4344.48mil,-4033mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R10-1K (3524.48mil,-4033mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R9-1K (4705.48mil,-1387mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R3-Res1 (5518.48mil,-1535mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R2-Res Semi (4680.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R1-Res Semi (4735.48mil,-1930mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component Q2-9012 (3614.48mil,-3228mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component Q1-9012 (3614.48mil,-3083mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L4-NC (3213.48mil,-345mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L3-电感 (3213.48mil,-520mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L1-Inductor (4987.48mil,-1742mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J7-USB-D (2284.48mil,-3748mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J6-DB9 (4909.48mil,-3748mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component F2-2A  FUSE (3179.48mil,-3063mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component F1-2A  FUSE (5148.48mil,-2365mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D10-BAT54C (2693.48mil,-1215mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D9-BAT54C (2833.48mil,-1150mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D5-发光二极管 (2212.48mil,-3017mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D4-BAT54C (4284.48mil,-2213mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D3-发光二极管 (4645.48mil,-1387mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C54-22uF (3094.48mil,-433mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C53-22uF (3041.48mil,-433mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C52-0.1uF (2989.48mil,-433mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C50-22uF (3440.48mil,-511mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C49-22uF (4457.48mil,-390mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C48-22uF (4402.48mil,-390mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C47-0.1uF (4512.48mil,-390mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C46-1uF (2958.48mil,-3245mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C45-1uF (2343.48mil,-3315mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C44-4.7uF (2958.48mil,-3410mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C43-0.1uF (2343.48mil,-3425mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C42-0.1uF (2958.48mil,-3355mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C41-0.1uF (2653.48mil,-3508mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C40-0.1uF (3493.48mil,-511mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C39-22pF (2373.48mil,-3215mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C38-22pF (2187.48mil,-3324mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C37-0.1uF (3459.48mil,-3438mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C36-220uF/16V (1924.48mil,-3358mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C35-0.1uF (2958.48mil,-3135mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C34-4.7uF (2733.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C32-4.7uF (2958.48mil,-3080mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C31-0.1uF (2568.48mil,-2955mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C30-0.1uF (2098.48mil,-3465mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C29-220uF/16V (3279.48mil,-3353mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C28-0.1uF (4823.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C27-0.1uF (4948.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C25-0.1uF (4573.48mil,-3240mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C24-0.1uF (4698.48mil,-3525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C23-0.1uF (4233.48mil,-1765mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C22-1nF (4339.48mil,-2258mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C19-0.1uF (4053.48mil,-3355mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C18-0.1uF (5278.48mil,-1535mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C5-Cap Pol3 (5411.48mil,-1860mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C4-Cap (4756.48mil,-1581mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C2-0.1uF (1894.795mil,-1009.716mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component BT1 (3229.48mil,-1358mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P6-POW-IN (5959.48mil,-1941mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D1-SMAJ16A (5443.48mil,-2245mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D2-SS54 (5308.48mil,-2245mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D11-SS210 (384.48mil,-3688mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C65-1000uF/25V (1649.48mil,-2943mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C66-0.22uF (842mil,-2873mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C67-1uF (1301.48mil,-2458mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C68-0.22uF (1299.48mil,-3088mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C69-300 (1249.48mil,-2458mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C70-1uF (1624.48mil,-3718mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C71-1uF (1464.48mil,-2366mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C72-1uF (1229.48mil,-3718mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C73-1uF (1175.48mil,-2459mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C74-0.22uF (1179.48mil,-3088mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C75-0.22uF (1059.48mil,-3088mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C76-1uF (1064.48mil,-3718mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C77-1uF (1029.48mil,-2433mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C78-10uF (709.48mil,-2629mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C79-300 (1029.48mil,-2486mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C80-1uF (659.48mil,-3718mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C81-1uF (709.48mil,-2367mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C82-0.22uF (934.48mil,-3088mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C83-0.22uF (1384.48mil,-2873mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C84-1000uF/25V (590mil,-2935mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C85-10uF (1464.48mil,-2626mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D12-M7 (1564.48mil,-3533mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D13-M7 (1274.48mil,-3533mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D14-M7 (984.48mil,-3533mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D15-M7 (689.48mil,-3533mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L7-10UH (1569.48mil,-3223mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L8-10UH (1289.48mil,-3223mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L9-10UH (1009.48mil,-3223mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L10-10UH (729.48mil,-3223mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P7-CON2 (1349.48mil,-3748mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component P8-CON2 (781.48mil,-3750mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R45-20K (1299.48mil,-2558mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R46-330R (1464.48mil,-2574mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R47-4.7K (1464.48mil,-2522mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R48-4.7K (1464.48mil,-2418mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R49-100K (1144.48mil,-2558mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R50-20K (1123.48mil,-2459mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R51-330R (709.48mil,-2577mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R52-4.7K (709.48mil,-2525mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R53-4.7K (709.48mil,-2419mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R56-2K (852.48mil,-2463mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R57-10K (904.48mil,-2463mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component RS1-NC (1464.48mil,-2470mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component RS2-NC (709.48mil,-2472mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component U10-TPA3116 (1309.48mil,-2648mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C1-0.1uF (1729.48mil,-1768mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C109-0.1uF (421.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C110-0.1uF (365.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C111-22uF (308.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C112-0.1uF (1184.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C113-0.1uF (1239.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C114-0.1uF (544.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C115-0.1uF (654.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C116-0.1uF (709.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C117-0.1uF (764.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C118-0.1uF (1504.48mil,-1743mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component C119-0.1uF (1559.48mil,-1743mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT SIP Component J20-MICRO-SIM (2296.48mil,-1613mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R87-49.9R  1% (489.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R88-49.9R  1% (599.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R89-4.7K(NC) (998.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R90-4.7K(NC) (939.48mil,-1638mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component L5-电感 (3213.48mil,-165mil) on Top Layer - Component pads are OFF grid. No action taken.
+    DIP Component P1-PHD30AW (1909.48mil,-198mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D33-ESD (5718.48mil,-1730mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R113-4.7K(NC) (1922.48mil,-1334mil) on Top Layer - Component pads are OFF grid. No action taken.
+    Component J21-Mini PCI Express (831.48mil,-2011mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D6-ESD (4973.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D34-ESD (5248.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D35-ESD (5083.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D36-ESD (5138.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component D37-ESD (4863.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    DIP Component J4-GPIO (5051.48mil,-129mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R32-100R (4918.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R54-100R (5028.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R55-100R (5303.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R60-100R (5193.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+    SMT Small Component R61-100R (4808.48mil,-395mil) on Top Layer - Component pads are OFF grid. No action taken.
+count : 256
