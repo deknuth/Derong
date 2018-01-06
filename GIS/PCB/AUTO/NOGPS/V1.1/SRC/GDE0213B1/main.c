@@ -58,6 +58,14 @@ void UartInit(void)
     UCSRC = 1<<UCSZ0 | 1<<UCSZ1 | 1<<URSEL;
 }
 
+void T0Init(void)
+{
+	TCNT0 = 0x00;
+	OCR0 = 0x80;
+	TCCR0 = (1<<CS00 | 1<<CS02);
+	TIMSK |= 1<<TOIE0;
+}
+
 void U0Send(char* data,unsigned char len)
 {
     unsigned char i;
@@ -67,6 +75,25 @@ void U0Send(char* data,unsigned char len)
         UDR = *(data++);
     }
 } 
+
+volatile unsigned char T0Count = 0;
+unsigned char info[18] = {	0xFE,0x12,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF };
+ISR(TIMER0_OVF_vect)
+{
+	TCNT0 = 0;
+	
+	T0Count++;
+
+    if(T0Count > 64)
+    {
+        {
+			U0Send(info,18);
+        }
+        T0Count = 0;
+    }
+	
+}
+
 
 volatile unsigned char T1Count = 0;
 ISR(TIMER1_OVF_vect)			// 5S one time 
@@ -81,7 +108,7 @@ ISR(USART_RXC_vect)
 	T2_ON;
 	tmp = UDR;
 	U0Buf[U0Count++] = tmp;
-	if(U0Count > 63)
+	if(U0Count > 24)
 		U0Count = 0;
 }
 
@@ -294,6 +321,7 @@ int main(void)
 
 	cli();
  	PortInit();
+	
 	LED_BLINK;
 	_delay_ms(200);
 	LED_BLINK;
@@ -310,7 +338,7 @@ int main(void)
 	LED_ON;
 	InitGSM();
 	GetMac();
-	
+	T0Init();
 	while(1)
 	{
 		if(U0Ready)

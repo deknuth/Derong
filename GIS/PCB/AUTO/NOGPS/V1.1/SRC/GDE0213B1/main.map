@@ -142,7 +142,7 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000     0x2fb0
+.text           0x00000000     0x3038
  *(.vectors)
  .vectors       0x00000000       0x54 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
                 0x00000000                __vectors
@@ -209,7 +209,6 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
                 0x000017fa                __bad_interrupt
                 0x000017fa                __vector_6
                 0x000017fa                __vector_3
-                0x000017fa                __vector_11
                 0x000017fa                __vector_17
                 0x000017fa                __vector_19
                 0x000017fa                __vector_7
@@ -236,58 +235,60 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
                 0x00001f66                SPI_Write
  .text          0x00001f90      0x15a kmp.o
                 0x00001f90                kmp
- .text          0x000020ea      0x8ac main.o
-                0x0000211a                U0Send
-                0x00002462                display
-                0x000021dc                ClearU0Buf
-                0x000026f2                eLinkInit
-                0x00002164                __vector_13
+ .text          0x000020ea      0x934 main.o
+                0x0000212c                U0Send
+                0x0000211a                T0Init
+                0x000024da                display
+                0x00002254                ClearU0Buf
+                0x00002148                __vector_11
+                0x0000276a                eLinkInit
+                0x000021dc                __vector_13
                 0x0000210a                UartInit
-                0x000021b6                __vector_5
-                0x0000288c                main
-                0x00002296                GetMac
+                0x0000222e                __vector_5
+                0x00002904                main
+                0x0000230e                GetMac
                 0x000020ea                PortInit
-                0x000021fe                WaitBack
-                0x00002136                __vector_9
-                0x00002232                InitGSM
-                0x0000220c                PowerConfir
- .text          0x00002996      0x398 public.o
-                0x00002b2e                StringToHex
-                0x00002a36                GetSpeed
-                0x00002b76                Str2Hex
-                0x00002996                GetDirc
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
- .text          0x00002d2e        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
-                0x00002d2e                . = ALIGN (0x2)
+                0x00002276                WaitBack
+                0x000021ae                __vector_9
+                0x000022aa                InitGSM
+                0x00002284                PowerConfir
+ .text          0x00002a1e      0x398 public.o
+                0x00002bb6                StringToHex
+                0x00002abe                GetSpeed
+                0x00002bfe                Str2Hex
+                0x00002a1e                GetDirc
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
+ .text          0x00002db6        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
+                0x00002db6                . = ALIGN (0x2)
  *(.text.*)
- .text.libgcc   0x00002d2e       0x18 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
-                0x00002d2e                __udivmodqi4
- .text.libgcc   0x00002d46       0x28 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
-                0x00002d46                __udivmodhi4
- .text.libgcc   0x00002d6e       0x26 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
-                0x00002d6e                __divmodhi4
-                0x00002d6e                _div
- .text.libgcc   0x00002d94        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
- .text.libgcc   0x00002d94        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
- .text.libgcc   0x00002d94        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
+ .text.libgcc   0x00002db6       0x18 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
+                0x00002db6                __udivmodqi4
+ .text.libgcc   0x00002dce       0x28 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
+                0x00002dce                __udivmodhi4
+ .text.libgcc   0x00002df6       0x26 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
+                0x00002df6                __divmodhi4
+                0x00002df6                _div
+ .text.libgcc   0x00002e1c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+ .text.libgcc   0x00002e1c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
+ .text.libgcc   0x00002e1c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
  .text.avr-libc
-                0x00002d94      0x20a c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
-                0x00002d94                malloc
-                0x00002eee                free
+                0x00002e1c      0x20a c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
+                0x00002e1c                malloc
+                0x00002f76                free
  .text.avr-libc
-                0x00002f9e        0xe c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
-                0x00002f9e                memset
-                0x00002fac                . = ALIGN (0x2)
+                0x00003026        0xe c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
+                0x00003026                memset
+                0x00003034                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x00002fac        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
-                0x00002fac                exit
-                0x00002fac                _exit
+ .fini9         0x00003034        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+                0x00003034                exit
+                0x00003034                _exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -306,11 +307,11 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x00002fac        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+ .fini0         0x00003034        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
  *(.fini0)
-                0x00002fb0                _etext = .
+                0x00003038                _etext = .
 
-.data           0x00800060      0x330 load address 0x00002fb0
+.data           0x00800060      0x342 load address 0x00003038
                 0x00800060                PROVIDE (__data_start, .)
  *(.data)
  .data          0x00800060        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
@@ -332,80 +333,82 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
                 0x0080006e                SDVol
  .data          0x008000b8        0x0 Display_EPD_W21_Aux.o
  .data          0x008000b8        0x0 kmp.o
- .data          0x008000b8      0x198 main.o
+ .data          0x008000b8      0x1aa main.o
+                0x00800142                info
                 0x008000fa                gImage_n
-                0x0080014e                AT_INS
-                0x00800142                REG_PACK
+                0x00800160                AT_INS
+                0x00800154                REG_PACK
                 0x008000d3                gImage_dot
- .data          0x00800250      0x13a public.o
-                0x00800250                ocHex
-                0x0080028a                ASCValue
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
- .data          0x0080038a        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
- .data          0x0080038a        0x6 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
-                0x0080038c                __malloc_heap_start
-                0x0080038e                __malloc_heap_end
-                0x0080038a                __malloc_margin
- .data          0x00800390        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
+ .data          0x00800262      0x13a public.o
+                0x00800262                ocHex
+                0x0080029c                ASCValue
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
+ .data          0x0080039c        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
+ .data          0x0080039c        0x6 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
+                0x0080039e                __malloc_heap_start
+                0x008003a0                __malloc_heap_end
+                0x0080039c                __malloc_margin
+ .data          0x008003a2        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
  *(.data*)
  *(.rodata)
  *(.rodata*)
  *(.gnu.linkonce.d*)
-                0x00800390                . = ALIGN (0x2)
-                0x00800390                _edata = .
-                0x00800390                PROVIDE (__data_end, .)
+                0x008003a2                . = ALIGN (0x2)
+                0x008003a2                _edata = .
+                0x008003a2                PROVIDE (__data_end, .)
 
-.bss            0x00800390      0x25f
-                0x00800390                PROVIDE (__bss_start, .)
+.bss            0x008003a2      0x260
+                0x008003a2                PROVIDE (__bss_start, .)
  *(.bss)
- .bss           0x00800390        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
- .bss           0x00800390        0x0 18B20.o
- .bss           0x00800390        0x0 Display_EPD_W21.o
- .bss           0x00800390        0x0 Display_EPD_W21_Aux.o
- .bss           0x00800390        0x0 kmp.o
- .bss           0x00800390      0x24d main.o
-                0x008003d1                U0Ready
-                0x008005cc                cStat
-                0x008003d3                num
-                0x008005cb                macReady
-                0x008003d0                U0Count
-                0x008003d2                T1Count
-                0x00800390                U0Buf
-                0x008005cd                s_mac
- .bss           0x008005dd        0x0 public.o
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
- .bss           0x008005dd        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
+ .bss           0x008003a2        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
+ .bss           0x008003a2        0x0 18B20.o
+ .bss           0x008003a2        0x0 Display_EPD_W21.o
+ .bss           0x008003a2        0x0 Display_EPD_W21_Aux.o
+ .bss           0x008003a2        0x0 kmp.o
+ .bss           0x008003a2      0x24e main.o
+                0x008003e3                U0Ready
+                0x008005df                cStat
+                0x008003e6                num
+                0x008005de                macReady
+                0x008003e4                T0Count
+                0x008003e2                U0Count
+                0x008003e5                T1Count
+                0x008003a2                U0Buf
+                0x008005e0                s_mac
+ .bss           0x008005f0        0x0 public.o
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodqi4.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_udivmodhi4.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_divmodhi4.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_exit.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_copy_data.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a(_clear_bss.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
+ .bss           0x008005f0        0x0 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(memset.o)
  *(.bss*)
  *(COMMON)
- COMMON         0x008005dd        0x3 18B20.o
-                0x008005dd                Temp_L
-                0x008005de                Temp_H
-                0x008005df                OK_Flag
- COMMON         0x008005e0        0xb main.o
-                0x008005e0                coor
- COMMON         0x008005eb        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
-                0x008005eb                __brkval
-                0x008005ed                __flp
-                0x008005ef                PROVIDE (__bss_end, .)
-                0x00002fb0                __data_load_start = LOADADDR (.data)
-                0x000032e0                __data_load_end = (__data_load_start + SIZEOF (.data))
+ COMMON         0x008005f0        0x3 18B20.o
+                0x008005f0                Temp_L
+                0x008005f1                Temp_H
+                0x008005f2                OK_Flag
+ COMMON         0x008005f3        0xb main.o
+                0x008005f3                coor
+ COMMON         0x008005fe        0x4 c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5\libc.a(malloc.o)
+                0x008005fe                __brkval
+                0x00800600                __flp
+                0x00800602                PROVIDE (__bss_end, .)
+                0x00003038                __data_load_start = LOADADDR (.data)
+                0x0000337a                __data_load_end = (__data_load_start + SIZEOF (.data))
 
-.noinit         0x008005ef        0x0
-                0x008005ef                PROVIDE (__noinit_start, .)
+.noinit         0x00800602        0x0
+                0x00800602                PROVIDE (__noinit_start, .)
  *(.noinit*)
-                0x008005ef                PROVIDE (__noinit_end, .)
-                0x008005ef                _end = .
-                0x008005ef                PROVIDE (__heap_start, .)
+                0x00800602                PROVIDE (__noinit_end, .)
+                0x00800602                _end = .
+                0x00800602                PROVIDE (__heap_start, .)
 
 .eeprom         0x00810000        0x0
  *(.eeprom*)
@@ -472,7 +475,7 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
                 0x000000a0       0x20 public.o
 
 .debug_pubnames
-                0x00000000      0x3d4
+                0x00000000      0x404
  *(.debug_pubnames)
  .debug_pubnames
                 0x00000000       0x72 18B20.o
@@ -483,48 +486,48 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
  .debug_pubnames
                 0x000001bd       0x1a kmp.o
  .debug_pubnames
-                0x000001d7      0x19f main.o
+                0x000001d7      0x1cf main.o
  .debug_pubnames
-                0x00000376       0x5e public.o
+                0x000003a6       0x5e public.o
 
-.debug_info     0x00000000     0x1f2e
+.debug_info     0x00000000     0x1fa2
  *(.debug_info)
  .debug_info    0x00000000      0x45f 18B20.o
  .debug_info    0x0000045f      0xb7d Display_EPD_W21.o
  .debug_info    0x00000fdc      0x1b5 Display_EPD_W21_Aux.o
  .debug_info    0x00001191      0x172 kmp.o
- .debug_info    0x00001303      0xa3d main.o
- .debug_info    0x00001d40      0x1ee public.o
+ .debug_info    0x00001303      0xab1 main.o
+ .debug_info    0x00001db4      0x1ee public.o
  *(.gnu.linkonce.wi.*)
 
-.debug_abbrev   0x00000000      0x89c
+.debug_abbrev   0x00000000      0x8c8
  *(.debug_abbrev)
  .debug_abbrev  0x00000000      0x147 18B20.o
  .debug_abbrev  0x00000147      0x21f Display_EPD_W21.o
  .debug_abbrev  0x00000366      0x101 Display_EPD_W21_Aux.o
  .debug_abbrev  0x00000467       0xe9 kmp.o
- .debug_abbrev  0x00000550      0x286 main.o
- .debug_abbrev  0x000007d6       0xc6 public.o
+ .debug_abbrev  0x00000550      0x2b2 main.o
+ .debug_abbrev  0x00000802       0xc6 public.o
 
-.debug_line     0x00000000     0x170b
+.debug_line     0x00000000     0x1799
  *(.debug_line)
  .debug_line    0x00000000      0x2f7 18B20.o
  .debug_line    0x000002f7      0x732 Display_EPD_W21.o
  .debug_line    0x00000a29      0x15d Display_EPD_W21_Aux.o
  .debug_line    0x00000b86      0x105 kmp.o
- .debug_line    0x00000c8b      0x876 main.o
- .debug_line    0x00001501      0x20a public.o
+ .debug_line    0x00000c8b      0x904 main.o
+ .debug_line    0x0000158f      0x20a public.o
 
-.debug_frame    0x00000000      0x2c0
+.debug_frame    0x00000000      0x2e0
  *(.debug_frame)
  .debug_frame   0x00000000       0x50 18B20.o
  .debug_frame   0x00000050       0xf0 Display_EPD_W21.o
  .debug_frame   0x00000140       0x20 Display_EPD_W21_Aux.o
  .debug_frame   0x00000160       0x20 kmp.o
- .debug_frame   0x00000180       0xf0 main.o
- .debug_frame   0x00000270       0x50 public.o
+ .debug_frame   0x00000180      0x110 main.o
+ .debug_frame   0x00000290       0x50 public.o
 
-.debug_str      0x00000000      0x64e
+.debug_str      0x00000000      0x66e
  *(.debug_str)
  .debug_str     0x00000000      0x160 18B20.o
                                 0x194 (size before relaxing)
@@ -534,9 +537,9 @@ LOAD c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/avr5\libgcc.a
                                 0x138 (size before relaxing)
  .debug_str     0x00000467       0x2f kmp.o
                                  0xde (size before relaxing)
- .debug_str     0x00000496      0x176 main.o
-                                0x283 (size before relaxing)
- .debug_str     0x0000060c       0x42 public.o
+ .debug_str     0x00000496      0x196 main.o
+                                0x2a3 (size before relaxing)
+ .debug_str     0x0000062c       0x42 public.o
                                  0xec (size before relaxing)
 
 .debug_loc      0x00000000     0x114f
@@ -602,6 +605,8 @@ SPI_Write                                         Display_EPD_W21_Aux.o
 Str2Hex                                           public.o
 StringToHex                                       public.o
                                                   main.o
+T0Count                                           main.o
+T0Init                                            main.o
 T1Count                                           main.o
 Temp_H                                            18B20.o
 Temp_L                                            18B20.o
@@ -647,7 +652,8 @@ __udivmodqi4                                      c:/winavr-20100110/bin/../lib/
                                                   main.o
 __vector_1                                        c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
 __vector_10                                       c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
-__vector_11                                       c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
+__vector_11                                       main.o
+                                                  c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
 __vector_12                                       c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
 __vector_13                                       main.o
                                                   c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o
@@ -687,6 +693,7 @@ gImage_n                                          main.o
 gImage_num                                        main.o
 gImage_signal3                                    main.o
 gImage_t48                                        main.o
+info                                              main.o
 kmp                                               kmp.o
                                                   main.o
 macReady                                          main.o
